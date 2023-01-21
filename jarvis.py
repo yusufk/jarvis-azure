@@ -57,6 +57,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 telegram_token = os.getenv("TELEGRAM_TOKEN")
+telegram_webhook_token = os.getenv("WEBHOOK_TOKEN")
 logger.info("Telegram token: "+telegram_token)
 
 # Initialise OpenAI
@@ -110,7 +111,16 @@ def main() -> None:
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
 
     # Run the bot until the user presses Ctrl-C
-    application.run_polling()
+    #application.run_polling()
+
+    application.run_webhook(
+        listen='0.0.0.0',
+        port=8000,
+        secret_token=telegram_webhook_token,
+        #key='private.key',
+        #cert='cert.pem',
+        webhook_url='***REMOVED***'
+    )
 
 
 if __name__ == "__main__":
