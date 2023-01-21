@@ -34,12 +34,12 @@ if __version_info__ < (20, 0, 0, "alpha", 1):
         f"{TG_VER} version of this example, "
         f"visit https://docs.python-telegram-bot.org/en/v{TG_VER}/examples.html"
     )
-from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove, Update
+from telegram import ForceReply, Update
 from telegram.ext import (
     Application,
     CommandHandler,
     ContextTypes,
-    ConversationHandler,
+    #ConversationHandler,
     MessageHandler,
     PicklePersistence,
     filters,
@@ -64,15 +64,6 @@ openai.api_type = "azure"
 openai.api_base = "https://jarvis-openai.openai.azure.com/"
 openai.api_version = "2022-12-01"
 openai.api_key = os.getenv("openapi-api-key")
-
-CHOOSING, TYPING_REPLY, TYPING_CHOICE = range(3)
-
-reply_keyboard = [
-    ["Age", "Favourite colour"],
-    ["Number of siblings", "Something else..."],
-    ["Done"],
-]
-markup = ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
 
 def get_answer(question):
   response = openai.Completion.create(
