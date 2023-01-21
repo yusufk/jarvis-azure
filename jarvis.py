@@ -118,8 +118,7 @@ def main() -> None:
         persistent=True,
     )
 
-    # Add ConversationHandler to dispatcher that will be used for handling updates
-    application.dispatcher.add_handler(conv_handler)
+    application.add_handler(conv_handler)
 
     # Start the Bot
     logger.info("Starting webhook...")
