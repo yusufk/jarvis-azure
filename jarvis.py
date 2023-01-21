@@ -54,16 +54,16 @@ logger.info("Starting Jarvis...")
 
 # Get environment variables from .env file
 from dotenv import load_dotenv
-# load_dotenv()
+load_dotenv()
 
-telegram_token = os.getenv("telegram-token")
+telegram_token = os.getenv("TELEGRAM_TOKEN")
 logger.info("Telegram token: "+telegram_token)
 
 # Initialise OpenAI
 openai.api_type = "azure"
 openai.api_base = "https://jarvis-openai.openai.azure.com/"
 openai.api_version = "2022-12-01"
-openai.api_key = os.getenv("openapi-api-key")
+openai.api_key = os.getenv("OPENAI_KEY")
 
 def get_answer(question):
   response = openai.Completion.create(
