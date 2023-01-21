@@ -39,7 +39,7 @@ from telegram.ext import (
     Application,
     CommandHandler,
     ContextTypes,
-    #ConversationHandler,
+    ConversationHandler,
     MessageHandler,
     PicklePersistence,
     filters,
@@ -66,10 +66,13 @@ openai.api_base = "https://jarvis-openai.openai.azure.com/"
 openai.api_version = "2022-12-01"
 openai.api_key = os.getenv("OPENAI_KEY")
 
+INTRO, CONVERSATION = range(2)
+chat_context = "The following is a conversation with an AI assistant called Jarvis. The assistant is helpful, creative, clever, and very friendly.\n\nHuman: Hello, who are you?\nAI: I am an AI created by OpenAI. How can I help you today?\nHuman: Who are you?\nAI:"
+
 def get_answer(question):
   response = openai.Completion.create(
   engine="davinci2deployment",
-  prompt="The following is a conversation with an AI assistant. The assistant is helpful, creative, clever, and very friendly.\n\nHuman: Hello, who are you?\nAI: I am an AI created by OpenAI. How can I help you today?\nHuman: "+question+" AI: ",
+  prompt=question,
   temperature=0,
   max_tokens=64,
   top_p=1,
@@ -80,21 +83,21 @@ def get_answer(question):
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a message when the command /start is issued."""
+    del context.chat_data
     user = update.effective_user
     await update.message.reply_html(
         rf"Hi {user.mention_html()}!",
         reply_markup=ForceReply(selective=True),
     )
+    context.chat_data = chat_context
+    await update.message.reply_text(chat_context)
+    return CONVERSATION
 
-
-async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Send a message when the command /help is issued."""
-    await update.message.reply_text("Help!")
-
-
-async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Echo the user message."""
-    await update.message.reply_text(get_answer(update.message.text))
+async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Chat back based on the user message."""
+    context.chat_data+=update.message.text
+    await update.message.reply_text(get_answer("Human: "+context.chat_data+"\nAI: "))
+    return CONVERSATION
 
 
 def main() -> None:
@@ -103,15 +106,22 @@ def main() -> None:
     persistence = PicklePersistence(filepath="conversationbot")
     application = Application.builder().token(telegram_token).persistence(persistence).build()
 
-    # on different commands - answer in Telegram
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("help", help_command))
+    # Add conversation handler with the states INTRO and CONVERSATION
+    conv_handler = ConversationHandler(
+        entry_points=[CommandHandler("start", start)],
+        states={
+            INTRO: [MessageHandler(filters.TEXT & ~filters.COMMAND, start)],
+            CONVERSATION: [MessageHandler(filters.TEXT & ~filters.COMMAND, chat)],
+        },
+        fallbacks=[CommandHandler("cancel", start)],
+        name="my_conversation",
+        persistent=True,
+    )
 
-    # on non command i.e message - echo the message on Telegram
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
+    # Add ConversationHandler to dispatcher that will be used for handling updates
+    application.dispatcher.add_handler(conv_handler)
 
-    # Run the bot until the user presses Ctrl-C
-    #application.run_polling()
+    # Start the Bot
     logger.info("Starting webhook...")
     application.run_webhook(
         listen='0.0.0.0',
