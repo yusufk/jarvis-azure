@@ -54,7 +54,7 @@ logger.info("Starting Jarvis...")
 
 # Get environment variables from .env file
 from dotenv import load_dotenv
-load_dotenv()
+# load_dotenv()
 
 telegram_token = os.getenv("telegram-token")
 logger.info("Telegram token: "+telegram_token)
