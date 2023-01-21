@@ -192,6 +192,7 @@ python-versions = ">=3.7"
 
 [package.dependencies]
 httpx = ">=0.23.1,<0.24.0"
+tornado = {version = ">=6.2,<7.0", optional = true, markers = "extra == \"webhooks\""}
 
 [package.extras]
 all = ["httpx", "cryptography (>=3.0,!=3.4,!=3.4.1,!=3.4.2,!=3.4.3)", "aiolimiter (>=1.0.0,<1.1.0)", "tornado (>=6.2,<7.0)", "cachetools (>=5.2.0,<5.3.0)", "APScheduler (>=3.9.1,<3.10.0)", "pytz (>=2018.6)"]
@@ -242,6 +243,14 @@ description = "Sniff out which async library your code is running under"
 category = "main"
 optional = false
 python-versions = ">=3.7"
+
+[[package]]
+name = "tornado"
+version = "6.2"
+description = "Tornado is a Python web framework and asynchronous networking library, originally developed at FriendFeed."
+category = "main"
+optional = false
+python-versions = ">= 3.7"
 
 [[package]]
 name = "tqdm"
@@ -296,7 +305,7 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.10"
-content-hash = "84d3b5e502380f4cd875a55257d986c1bfc3910e7c26d89f93ee26445d0d74e9"
+content-hash = "4a4e2e705083163c7dcd124e26b0fa141d3a97b581cf5d452a3d033b16e51222"
 
 [metadata.files]
 aiohttp = []
@@ -318,6 +327,7 @@ python-telegram-bot = []
 requests = []
 rfc3986 = []
 sniffio = []
+tornado = []
 tqdm = []
 typing-extensions = []
 urllib3 = []
