@@ -83,20 +83,23 @@ def get_answer(question):
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a message when the command /start is issued."""
-    del context.chat_data
+    context.chat_data["history"] = chat_context
     user = update.effective_user
     await update.message.reply_html(
         rf"Hi {user.mention_html()}!",
         reply_markup=ForceReply(selective=True),
     )
-    context.chat_data = chat_context
-    await update.message.reply_text(chat_context)
+    reply = get_answer(chat_context)
+    await update.message.reply_text(reply)
+    context.chat_data["history"] += reply
     return CONVERSATION
 
 async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Chat back based on the user message."""
-    context.chat_data+=update.message.text
-    await update.message.reply_text(get_answer("Human: "+context.chat_data+"\nAI: "))
+    context.chat_data["history"]+="\nHuman: "+update.message.text
+    reply = get_answer(context.chat_data["history"]+"\nAI: ")
+    await update.message.reply_text(reply)
+    context.chat_data["history"] += "\nAI: "+reply
     return CONVERSATION
 
 
@@ -119,6 +122,8 @@ def main() -> None:
     )
 
     application.add_handler(conv_handler)
+
+    #application.run_polling()
 
     # Start the Bot
     logger.info("Starting webhook...")
