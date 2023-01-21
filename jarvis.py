@@ -112,7 +112,7 @@ def main() -> None:
 
     # Run the bot until the user presses Ctrl-C
     #application.run_polling()
-
+    logger.info("Starting webhook...")
     application.run_webhook(
         listen='0.0.0.0',
         port=8000,
