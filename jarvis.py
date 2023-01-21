@@ -56,13 +56,13 @@ logger.info("Starting Jarvis...")
 from dotenv import load_dotenv
 load_dotenv()
 
-telegram_token = os.getenv("TELEGRAM_TOKEN")
+telegram_token = os.getenv("telegram-token")
 
 # Initialise OpenAI
 openai.api_type = "azure"
 openai.api_base = "https://jarvis-openai.openai.azure.com/"
 openai.api_version = "2022-12-01"
-openai.api_key = os.getenv("OPENAI_API_KEY")
+openai.api_key = os.getenv("openapi-api-key")
 
 CHOOSING, TYPING_REPLY, TYPING_CHOICE = range(3)
 
