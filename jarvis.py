@@ -57,6 +57,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 telegram_token = os.getenv("telegram-token")
+logger.info("Telegram token: "+telegram_token)
 
 # Initialise OpenAI
 openai.api_type = "azure"
