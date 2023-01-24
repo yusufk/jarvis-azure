@@ -58,7 +58,7 @@ load_dotenv()
 
 telegram_token = os.getenv("TELEGRAM_TOKEN")
 telegram_webhook_token = os.getenv("WEBHOOK_TOKEN")
-logger.info("Telegram token: "+telegram_token)
+telegram_webhook_url = os.getenv("WEBHOOK_URL")
 
 # Initialise OpenAI
 openai.api_type = "azure"
@@ -71,11 +71,11 @@ chat_context = "The following is a conversation with an AI assistant called Jarv
 
 def get_answer(question):
   response = openai.Completion.create(
-  engine="davinci2deployment",
+  engine="davinci3_deployment_model",
   prompt=question,
   temperature=0,
-  max_tokens=64,
-  top_p=1,
+  max_tokens=1024,
+  top_p=0.9,
   frequency_penalty=0,
   presence_penalty=0,
   stop=None)
@@ -133,7 +133,7 @@ def main() -> None:
         secret_token=telegram_webhook_token,
         #key='private.key',
         #cert='cert.pem',
-        webhook_url='***REMOVED***'
+        webhook_url=telegram_webhook_url
     )
 
 
