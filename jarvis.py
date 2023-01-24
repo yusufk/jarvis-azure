@@ -73,7 +73,7 @@ openai_max_tokens = os.getenv("MAX_TOKENS")
 INTRO, CONVERSATION = range(2)
 chat_context = "The following is a conversation with an AI assistant called Jarvis. The assistant is helpful, creative, clever, and very friendly.\n\nHuman: Hello, who are you?\nAI: I am an AI created by OpenAI. How can I help you today?\nHuman: Who are you?\nAI:"
 
-def get_answer(question):
+def get_answer(question, tg_user=None):
   response = openai.Completion.create(
   engine=openai_engine,
   prompt=question,
@@ -82,7 +82,8 @@ def get_answer(question):
   top_p=float(openai_top_p),
   frequency_penalty=0,
   presence_penalty=0,
-  stop=None)
+  stop=None,
+  user=tg_user)
   return response.choices[0].text
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -101,7 +102,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Chat back based on the user message."""
     context.chat_data["history"]+="\nHuman: "+update.message.text
-    reply = get_answer(context.chat_data["history"]+"\nAI: ")
+    reply = get_answer(context.chat_data["history"]+"\nAI: ", tg_user=update.effective_user.id)
     await update.message.reply_text(reply)
     context.chat_data["history"] += "\nAI: "+reply
     return CONVERSATION
