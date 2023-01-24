@@ -102,7 +102,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Chat back based on the user message."""
     context.chat_data["history"]+="\nHuman: "+update.message.text
-    reply = get_answer(context.chat_data["history"]+"\nAI: ", tg_user=update.effective_user.id)
+    reply = get_answer(context.chat_data["history"]+"\nAI: ", tg_user=str(update.effective_user.id))
     await update.message.reply_text(reply)
     context.chat_data["history"] += "\nAI: "+reply
     return CONVERSATION
