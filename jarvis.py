@@ -65,17 +65,21 @@ openai.api_type = "azure"
 openai.api_base = "https://jarvis-openai.openai.azure.com/"
 openai.api_version = "2022-12-01"
 openai.api_key = os.getenv("OPENAI_KEY")
+openai_temp = os.getenv("TEMPERATURE")
+openai_top_p = os.getenv("TOP_PROB")
+openai_engine = os.getenv("ENGINE")
+openai_max_tokens = os.getenv("MAX_TOKENS")
 
 INTRO, CONVERSATION = range(2)
 chat_context = "The following is a conversation with an AI assistant called Jarvis. The assistant is helpful, creative, clever, and very friendly.\n\nHuman: Hello, who are you?\nAI: I am an AI created by OpenAI. How can I help you today?\nHuman: Who are you?\nAI:"
 
 def get_answer(question):
   response = openai.Completion.create(
-  engine="davinci3_deployment_model",
+  engine=openai_engine,
   prompt=question,
-  temperature=0,
-  max_tokens=1024,
-  top_p=0.9,
+  temperature=openai_temp,
+  max_tokens=openai_max_tokens,
+  top_p=openai_top_p,
   frequency_penalty=0,
   presence_penalty=0,
   stop=None)
