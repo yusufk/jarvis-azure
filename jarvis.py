@@ -77,9 +77,9 @@ def get_answer(question):
   response = openai.Completion.create(
   engine=openai_engine,
   prompt=question,
-  temperature=openai_temp,
-  max_tokens=openai_max_tokens,
-  top_p=openai_top_p,
+  temperature=float(openai_temp),
+  max_tokens=int(openai_max_tokens),
+  top_p=float(openai_top_p),
   frequency_penalty=0,
   presence_penalty=0,
   stop=None)
