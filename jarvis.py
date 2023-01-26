@@ -20,7 +20,6 @@ import os
 import openai
 import telegram
 from typing import Dict
-from functools import wraps
 
 from telegram import __version__ as TG_VER
 
@@ -90,30 +89,28 @@ def get_answer(question, tg_user=None):
   user=tg_user)
   return response.choices[0].text
 
-def restricted(func):
-    @wraps(func)
-    async def wrapped(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        user_id = update.effective_user.id
-        user_handle = update.effective_user.username
-        if user_id not in white_list:
-            logging.warning(f"Unauthorized access denied for user {user_handle} with id {user_id}.")
-            await update.message.reply_text("You're not authorized to use this bot. Please contact the bot owner.")
-            return
-        return func(update, context)
-    return INTRO
-
-@restricted
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a message when the command /start is issued."""
+    user_id = update.effective_user.id
+    user_handle = update.effective_user.username
+    if user_id not in white_list:
+        logging.warning(f"Unauthorized access denied for user {user_handle} with id {user_id}.")
+        await update.message.reply_text("You're not authorized to use this bot. Please contact the bot owner.")
+        return INTRO
     context.chat_data["history"] = chat_context
     reply = get_answer(chat_context)
     await update.message.reply_text(reply)
     context.chat_data["history"] += reply
     return CONVERSATION
 
-@restricted
 async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Chat back based on the user message."""
+    user_id = update.effective_user.id
+    user_handle = update.effective_user.username
+    if user_id not in white_list:
+        logging.warning(f"Unauthorized access denied for user {user_handle} with id {user_id}.")
+        await update.message.reply_text("You're not authorized to use this bot. Please contact the bot owner.")
+        return INTRO
     context.chat_data["history"]+="\nHuman: "+update.message.text
     reply = get_answer(context.chat_data["history"]+"\nJarvis: ", tg_user=str(update.effective_user.id))
     await update.message.reply_text(reply)

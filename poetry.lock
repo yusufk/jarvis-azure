@@ -90,14 +90,6 @@ optional = false
 python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,!=3.5.*,!=3.6.*,>=2.7"
 
 [[package]]
-name = "functools"
-version = "0.5"
-description = "Fast tools for functional programming"
-category = "main"
-optional = false
-python-versions = "*"
-
-[[package]]
 name = "h11"
 version = "0.14.0"
 description = "A pure-Python, bring-your-own-I/O implementation of HTTP/1.1"
@@ -312,7 +304,7 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.10"
-content-hash = "509f88862e97eded581c83e09d7ee8e4a2c975650c05c0496e254cd4ebd312ee"
+content-hash = "4a4e2e705083163c7dcd124e26b0fa141d3a97b581cf5d452a3d033b16e51222"
 
 [metadata.files]
 aiohttp = [
@@ -467,9 +459,6 @@ charset-normalizer = [
 colorama = [
     {file = "colorama-0.4.6-py2.py3-none-any.whl", hash = "sha256:4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6"},
     {file = "colorama-0.4.6.tar.gz", hash = "sha256:08695f5cb7ed6e0531a20572697297273c47b8cae5a63ffc6d6ed5c201be6e44"},
-]
-functools = [
-    {file = "functools-0.5.tar.gz", hash = "sha256:596ed8999dee419c0749a41bfdd82e4697e80ea27ee01c716003ef55be9a54c5"},
 ]
 h11 = [
     {file = "h11-0.14.0-py3-none-any.whl", hash = "sha256:e3fe4ac4b851c468cc8363d500db52c2ead036020723024a109d37346efaa761"},
