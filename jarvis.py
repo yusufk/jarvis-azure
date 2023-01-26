@@ -91,12 +91,12 @@ def get_answer(question, tg_user=None):
 
 def restricted(func):
     @wraps(func)
-    def wrapped(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    async def wrapped(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_id = update.effective_user.id
         user_handle = update.effective_user.username
         if user_id not in white_list:
             logging.warn(f"Unauthorized access denied for user {user_handle} with id {user_id}.")
-            update.message.reply_text("You're not authorized to use this bot. Please contact the bot owner.")
+            await update.message.reply_text("You're not authorized to use this bot. Please contact the bot owner.")
             return
         return func(update, context)
     return wrapped
