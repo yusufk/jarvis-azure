@@ -60,7 +60,8 @@ load_dotenv()
 telegram_token = os.getenv("TELEGRAM_TOKEN")
 telegram_webhook_token = os.getenv("WEBHOOK_TOKEN")
 telegram_webhook_url = os.getenv("WEBHOOK_URL")
-white_list = os.getenv("WHITE_LIST").split(",")
+white_list_str = os.getenv("WHITE_LIST").split(",")
+white_list = [int(x) for x in white_list_str]
 master_id = white_list[0]
 
 # Initialise OpenAI
@@ -95,7 +96,7 @@ def restricted(func):
         user_id = update.effective_user.id
         user_handle = update.effective_user.username
         if user_id not in white_list:
-            logging.warn(f"Unauthorized access denied for user {user_handle} with id {user_id}.")
+            logging.warning(f"Unauthorized access denied for user {user_handle} with id {user_id}.")
             await update.message.reply_text("You're not authorized to use this bot. Please contact the bot owner.")
             return
         return func(update, context)
