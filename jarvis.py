@@ -100,17 +100,12 @@ def restricted(func):
             await update.message.reply_text("You're not authorized to use this bot. Please contact the bot owner.")
             return
         return func(update, context)
-    return wrapped
+    return INTRO
 
 @restricted
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a message when the command /start is issued."""
     context.chat_data["history"] = chat_context
-    user = update.effective_user
-    await update.message.reply_html(
-        rf"Hi {user.mention_html()}!",
-        reply_markup=ForceReply(selective=True),
-    )
     reply = get_answer(chat_context)
     await update.message.reply_text(reply)
     context.chat_data["history"] += reply
