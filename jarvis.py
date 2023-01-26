@@ -101,6 +101,7 @@ def restricted(func):
         return func(update, context)
     return wrapped
 
+@restricted
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a message when the command /start is issued."""
     context.chat_data["history"] = chat_context
