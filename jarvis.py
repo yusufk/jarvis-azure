@@ -1,16 +1,14 @@
-# Description: A simple AI assistant that can answer questions and perform tasks via a Telegram bot.
 #!/usr/bin/env python
-# pylint: disable=unused-argument, wrong-import-position
 # This program is dedicated to the public domain under the CC0 license.
 
 """
-First, a few callback functions are defined. Then, those functions are passed to
-the Application and registered at their respective places.
-Then, the bot is started and runs until we press Ctrl-C on the command line.
-
+An intelligent AI assistant that can answer questions and perform tasks via a Telegram bot powered by Azure OpenAI.
+It uses the Updater class to handle the bot.
+First, a few callback functions are defined. Then, those functions are passed to the Dispatcher and
+registered at their respective places. Then, the bot is started and runs until we press Ctrl-C on the
+command line.
 Usage:
-Example of a bot-user conversation using ConversationHandler.
-Send /start to initiate the conversation.
+ConversationBot example, ConversationHandler and PicklePersistence.
 Press Ctrl-C on the command line or send a signal to the process to stop the
 bot.
 """
@@ -114,7 +112,7 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     context.chat_data["history"]+="\nHuman: "+update.message.text
     reply = get_answer(context.chat_data["history"]+"\nJarvis: ", tg_user=str(update.effective_user.id))
     await update.message.reply_text(reply)
-    logger.info(f"{str(update.effective_user.id)}: {update.message.text}, Jarvis: {reply}")
+    logger.info(f"{str(update.effective_user.id)}: {update.message.text}, Jarvis: {reply.strip('\n')}")
     context.chat_data["history"] += "\nJarvis: "+reply
     return CONVERSATION
 
