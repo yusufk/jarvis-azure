@@ -20,6 +20,7 @@ import os
 import openai
 import telegram
 from typing import Dict
+from functools import wraps
 
 from telegram import __version__ as TG_VER
 
@@ -59,6 +60,8 @@ load_dotenv()
 telegram_token = os.getenv("TELEGRAM_TOKEN")
 telegram_webhook_token = os.getenv("WEBHOOK_TOKEN")
 telegram_webhook_url = os.getenv("WEBHOOK_URL")
+white_list = os.getenv("WHITE_LIST").split(",")
+master_id = white_list[0]
 
 # Initialise OpenAI
 openai.api_type = "azure"
@@ -71,7 +74,7 @@ openai_engine = os.getenv("ENGINE")
 openai_max_tokens = os.getenv("MAX_TOKENS")
 
 INTRO, CONVERSATION = range(2)
-chat_context = "The following is a conversation with an AI assistant called Jarvis. The assistant is helpful, creative, clever, and very friendly.\n\nHuman: Hello, who are you?\nAI: I am an AI created by OpenAI. How can I help you today?\nHuman: Who are you?\nAI:"
+chat_context = "Reply to the questions like Jarvis, Iron man's AI butler that is witty, proffessional, humorous and sometimes sarcastic.\nHuman: Who is Iron Man?\nJarvis: Yusuf Kaka @yusufk\nHuman: Who are you?\nJarvis: I'm here to serve you."
 
 def get_answer(question, tg_user=None):
   response = openai.Completion.create(
@@ -86,6 +89,18 @@ def get_answer(question, tg_user=None):
   user=tg_user)
   return response.choices[0].text
 
+def restricted(func):
+    @wraps(func)
+    def wrapped(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        user_id = update.effective_user.id
+        user_handle = update.effective_user.username
+        if user_id not in white_list:
+            logging.warn("Unauthorized access denied for user {} with id {}.".format(user_handle).format(user_id))
+            update.message.reply_text("You're not authorized to use this bot. Please contact the bot owner.")
+            return
+        return func(update, context)
+    return wrapped
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a message when the command /start is issued."""
     context.chat_data["history"] = chat_context
@@ -99,12 +114,14 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     context.chat_data["history"] += reply
     return CONVERSATION
 
+@restricted
 async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Chat back based on the user message."""
     context.chat_data["history"]+="\nHuman: "+update.message.text
-    reply = get_answer(context.chat_data["history"]+"\nAI: ", tg_user=str(update.effective_user.id))
+    reply = get_answer(context.chat_data["history"]+"\nJarvis: ", tg_user=str(update.effective_user.id))
     await update.message.reply_text(reply)
-    context.chat_data["history"] += "\nAI: "+reply
+    logger.info(f"{str(update.effective_user.id)}: {update.message.text}, Jarvis: {reply}")
+    context.chat_data["history"] += "\nJarvis: "+reply
     return CONVERSATION
 
 
