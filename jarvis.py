@@ -106,6 +106,11 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     else:
         brain = Brain()
         brain.populate_memory("training.jsonl")
+        intro_dialog = Dialogue()
+        intro_dialog.set_question("Human: Hi, my name is "+update.effective_user.first_name)
+        intro_dialog.set_thought("Jarvis thinks: "+update.effective_user.first_name+"seems friendly. I can't wait to find our more about him or her.")
+        intro_dialog.set_answer("Jarvis: Hi "+update.effective_user.first_name+", how can I help you?")
+        brain.add_to_memory(intro_dialog)
 
     # Create a new dialogue    
     dialog = Dialogue()
