@@ -68,10 +68,6 @@ class Brain:
             complete_context += dialogue.get_answer()+"\n\n"
         return complete_context
 
-# Test the brain
-brain = Brain()
-brain.populate_memory("training.jsonl")
-print(brain.get_complete_context())
 
     
     
