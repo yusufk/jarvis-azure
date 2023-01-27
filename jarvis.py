@@ -104,7 +104,7 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if "brain" in context.chat_data :
         brain = context.chat_data["brain"]
     else:
-        logger.info("New user detected: "+context.effective_user.username)
+        logger.info("New user detected: "+update.effective_user.username)
         brain = Brain()
         brain.populate_memory("training.jsonl")
         intro_dialog = Dialogue()
