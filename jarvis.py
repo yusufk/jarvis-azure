@@ -18,6 +18,7 @@ import os
 import openai
 import telegram
 from typing import Dict
+from brain import Brain, Dialogue
 
 from telegram import __version__ as TG_VER
 
@@ -72,7 +73,10 @@ openai_engine = os.getenv("ENGINE")
 openai_max_tokens = os.getenv("MAX_TOKENS")
 
 INTRO, CONVERSATION = range(2)
-chat_context = "Reply to the questions like Jarvis, Iron man's AI butler that is witty, proffessional, humorous and sometimes sarcastic.\nHuman: Who is Iron Man?\nJarvis: Yusuf Kaka @yusufk\nHuman: Who are you?\nJarvis: I'm here to serve you."
+# Load the brain
+logger.info("Loading brain...")
+brain = Brain()
+brain.populate_memory("training.jsonl")
 
 def get_answer(question, tg_user=None):
   response = openai.Completion.create(
@@ -95,10 +99,15 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         logging.warning(f"Unauthorized access denied for user {user_handle} with id {user_id}.")
         await update.message.reply_text("You're not authorized to use this bot. Please contact the bot owner.")
         return INTRO
-    context.chat_data["history"] = chat_context
-    reply = get_answer(chat_context)
+    context.chat_data["history"] = brain
+    dialog = Dialogue()
+    dialog.set_question("Human: My name is "+update.effective_user.first_name)
+    reply = get_answer(brain.get_complete_context+dialog.get_question(), tg_user=str(update.effective_user.id))
+    dialog.set_answer(reply.split("Jarvis thinks:")[0])
+    dialog.set_thought("Jarvis thinks: "+reply.split("Jarvis thinks:")[1])
     await update.message.reply_text(reply)
-    context.chat_data["history"] += reply
+    brain.add_to_memory(dialog)
+    context.chat_data["history"] = brain
     return CONVERSATION
 
 async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -109,11 +118,24 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         logging.warning(f"Unauthorized access denied for user {user_handle} with id {user_id}.")
         await update.message.reply_text("You're not authorized to use this bot. Please contact the bot owner.")
         return INTRO
+    
     context.chat_data["history"]+="\nHuman: "+update.message.text
     reply = get_answer(context.chat_data["history"]+"\nJarvis: ", tg_user=str(update.effective_user.id))
     await update.message.reply_text(reply)
     logger.info(f"{str(update.effective_user.id)}: {update.message.text}, Jarvis: {reply.strip('\n')}")
     context.chat_data["history"] += "\nJarvis: "+reply
+
+    context.chat_data["history"] = brain
+    dialog = Dialogue()
+    dialog.set_question("Human: "+update.message.text)
+    reply = get_answer(brain.get_complete_context+dialog.get_question(), tg_user=str(update.effective_user.id))
+    dialog.set_answer(reply.split("Jarvis thinks:")[0])
+    dialog.set_thought("Jarvis thinks: "+reply.split("Jarvis thinks:")[1])
+    await update.message.reply_text(reply)
+    brain.add_to_memory(dialog)
+    context.chat_data["history"] = brain
+    logger.info(f"{str(update.effective_user.id)}: {update.message.text}, Jarvis: {reply.strip('\n')}")
+   
     return CONVERSATION
 
 
