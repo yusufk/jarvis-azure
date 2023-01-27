@@ -72,7 +72,7 @@ openai_top_p = os.getenv("TOP_PROB")
 openai_engine = os.getenv("ENGINE")
 openai_max_tokens = os.getenv("MAX_TOKENS")
 
-INTRO, CONVERSATION = range(2)
+CONVERSATION = range(1)
 # Load the brain
 logger.info("Loading brain...")
 brain = Brain()
@@ -91,25 +91,6 @@ def get_answer(question, tg_user=None):
   user=tg_user)
   return response.choices[0].text
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Send a message when the command /start is issued."""
-    user_id = update.effective_user.id
-    user_handle = update.effective_user.username
-    if user_id not in white_list:
-        logging.warning(f"Unauthorized access denied for user {user_handle} with id {user_id}.")
-        await update.message.reply_text("You're not authorized to use this bot. Please contact the bot owner.")
-        return INTRO
-    context.chat_data["history"] = brain
-    dialog = Dialogue()
-    dialog.set_question("Human: My name is "+update.effective_user.first_name)
-    reply = get_answer(brain.get_complete_context+dialog.get_question(), tg_user=str(update.effective_user.id))
-    dialog.set_answer(reply.split("Jarvis thinks:")[0])
-    dialog.set_thought("Jarvis thinks: "+reply.split("Jarvis thinks:")[1])
-    await update.message.reply_text(reply)
-    brain.add_to_memory(dialog)
-    context.chat_data["history"] = brain
-    return CONVERSATION
-
 async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Chat back based on the user message."""
     user_id = update.effective_user.id
@@ -117,25 +98,28 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if user_id not in white_list:
         logging.warning(f"Unauthorized access denied for user {user_handle} with id {user_id}.")
         await update.message.reply_text("You're not authorized to use this bot. Please contact the bot owner.")
-        return INTRO
-    
-    context.chat_data["history"]+="\nHuman: "+update.message.text
-    reply = get_answer(context.chat_data["history"]+"\nJarvis: ", tg_user=str(update.effective_user.id))
-    await update.message.reply_text(reply)
-    logger.info(f"{str(update.effective_user.id)}: {update.message.text}, Jarvis: {reply.strip('\n')}")
-    context.chat_data["history"] += "\nJarvis: "+reply
+        return CONVERSATION
 
-    context.chat_data["history"] = brain
+    # Get the persisted context
+    if "brain" in context.chat_data :
+        brain = context.chat_data["brain"]
+    else:
+        brain = Brain()
+        brain.populate_memory("training.jsonl")
+
+    # Create a new dialogue    
     dialog = Dialogue()
     dialog.set_question("Human: "+update.message.text)
-    reply = get_answer(brain.get_complete_context+dialog.get_question(), tg_user=str(update.effective_user.id))
-    dialog.set_answer(reply.split("Jarvis thinks:")[0])
-    dialog.set_thought("Jarvis thinks: "+reply.split("Jarvis thinks:")[1])
-    await update.message.reply_text(reply)
-    brain.add_to_memory(dialog)
-    context.chat_data["history"] = brain
-    logger.info(f"{str(update.effective_user.id)}: {update.message.text}, Jarvis: {reply.strip('\n')}")
-   
+    reply = get_answer(brain.get_complete_context()+dialog.get_question(), tg_user=str(update.effective_user.id))
+    dialog.populate(reply)
+    brain.add_to_memory(dialog) 
+    
+    # Send the message back
+    await update.message.reply_text(dialog.get_answer()[dialog.get_answer().index("Jarvis: ")+8:])
+
+    # Update persisted context
+    context.chat_data["brain"] = brain
+    logger.info(f"{str(update.effective_user.id)}: {dialog.get_question()} , {dialog.get_answer()} , {dialog.get_thought()}")
     return CONVERSATION
 
 
@@ -147,12 +131,11 @@ def main() -> None:
 
     # Add conversation handler with the states INTRO and CONVERSATION
     conv_handler = ConversationHandler(
-        entry_points=[CommandHandler("start", start)],
+        entry_points=[MessageHandler(filters.TEXT & ~filters.COMMAND, chat)],
         states={
-            INTRO: [MessageHandler(filters.TEXT & ~filters.COMMAND, start)],
             CONVERSATION: [MessageHandler(filters.TEXT & ~filters.COMMAND, chat)],
         },
-        fallbacks=[CommandHandler("cancel", start)],
+        fallbacks=[MessageHandler(filters.TEXT & ~filters.COMMAND, chat)],
         name="my_conversation",
         persistent=True,
     )

@@ -5,16 +5,19 @@ class Dialogue:
     def __init__(self):
         self.question = ""
         self.answer = ""
-        self.thought=""
+        self.thought = ""
+    
+    def set_thought(self, thought):
+        self.thought = thought
+
+    def get_thought(self):
+        return self.thought
 
     def set_question(self, question):
         self.question = question
     
     def set_answer(self, answer):
         self.answer = answer
-    
-    def set_thought(self, thought):
-        self.thought = thought
 
     def get_question(self):
         return self.question
@@ -22,20 +25,21 @@ class Dialogue:
     def get_answer(self):
         return self.answer
     
-    def get_thought(self):
-        return self.thought
+    def populate(self, reply):
+        self.answer = reply[reply.index("Jarvis: "):len(reply)].rstrip('\n')
+        self.thought = reply[reply.index("Jarvis thinks: "):reply.index("Jarvis: ")].rstrip('\n')
 
 class Brain:
     def __init__(self):
         self.context = "The following is a conversation with an AI assistant called Jarvis, with personality like the Marvel character he's named after. The assistant is curious, helpful, creative, witty, proffessional, humorous and sometimes sarcastic. The AI assistant also has an internal dialogue as thoughts."
         self.memory = []
-        self.memory_size = 10
+        self.memory_size = 50
         
     def add_to_memory(self, dialogue):
         if len(self.memory) == self.memory_size:
             self.memory.pop(0)
         self.memory.append(dialogue)
-
+        
     def get_memory(self):
         return self.memory
 
@@ -52,14 +56,16 @@ class Brain:
                 # and the thought is "What a friendly person, looking forward to finding out more."
                 line = json.loads(line)
                 dialogue.question = line["prompt"]
-                dialogue.answer = line["completion"].split("Jarvis thinks:")[0]
-                dialogue.thought = "Jarvis thinks: "+line["completion"].split("Jarvis thinks:")[1]
+                dialogue.populate(line["completion"])
                 self.add_to_memory(dialogue)
 
     def get_complete_context(self):
         complete_context = self.context+"\n\n"
+        # iterate through memory and add to context
         for dialogue in self.memory:
-            complete_context += dialogue.question + "\n" + dialogue.thought + "\n" + dialogue.answer + "\n\n"
+            complete_context += dialogue.get_question()+"\n"
+            complete_context += dialogue.get_thought()+"\n"
+            complete_context += dialogue.get_answer()+"\n\n"
         return complete_context
 
 # Test the brain
