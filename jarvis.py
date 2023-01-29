@@ -144,7 +144,7 @@ def main() -> None:
     application.add_handler(conv_handler)
 
     # Start the Bot
-    run_as_polling = os.env.get("RUN_POLL", False)
+    run_as_polling = os.getenv("RUN_POLL", False)
     if run_as_polling:
         logger.info("Starting polling...")
         application.run_polling()
