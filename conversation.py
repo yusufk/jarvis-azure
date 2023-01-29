@@ -5,13 +5,6 @@ class Dialogue:
     def __init__(self):
         self.question = ""
         self.answer = ""
-        self.thought = ""
-    
-    def set_thought(self, thought):
-        self.thought = thought
-
-    def get_thought(self):
-        return self.thought
 
     def set_question(self, question):
         self.question = question
@@ -26,10 +19,10 @@ class Dialogue:
         return self.answer
     
     def populate(self, reply):
-        self.answer = reply[reply.index("Jarvis: "):len(reply)].rstrip('\n')
-        self.thought = reply[reply.index("Jarvis thinks: "):reply.index("Jarvis: ")].rstrip('\n')
+        #self.answer = reply[reply.index("Jarvis: "):len(reply)].rstrip('\n')
+        self.answer = reply.rstrip('\n')
 
-class Brain:
+class Conversation:
     def __init__(self):
         self.context = "The following is a conversation with an AI assistant called Jarvis, with personality like the Marvel character he's named after. The assistant is curious, helpful, creative, witty, proffessional, humorous and sometimes sarcastic. The AI assistant also has an internal dialogue as thoughts."
         self.memory = []
@@ -64,10 +57,14 @@ class Brain:
         # iterate through memory and add to context
         for dialogue in self.memory:
             complete_context += dialogue.get_question()+"\n"
-            complete_context += dialogue.get_thought()+"\n"
             complete_context += dialogue.get_answer()+"\n\n"
+        complete_context += "Jarvis: "
         return complete_context
 
-
+# If main.py is run as a script, run the main function
+if __name__ == "__main__":
+    conversation = Conversation()
+    conversation.populate_memory("training.jsonl")
+    print(conversation.get_complete_context())
     
     

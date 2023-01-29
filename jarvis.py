@@ -18,7 +18,7 @@ import os
 import openai
 import telegram
 from typing import Dict
-from brain import Brain, Dialogue
+from conversation import Conversation, Dialogue
 
 from telegram import __version__ as TG_VER
 
@@ -73,10 +73,6 @@ openai_engine = os.getenv("ENGINE")
 openai_max_tokens = os.getenv("MAX_TOKENS")
 
 CONVERSATION = range(1)
-# Load the brain
-logger.info("Loading brain...")
-brain = Brain()
-brain.populate_memory("training.jsonl")
 
 def get_answer(question, tg_user=None):
   response = openai.Completion.create(
@@ -101,31 +97,30 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return CONVERSATION
 
     # Get the persisted context
-    if "brain" in context.chat_data :
-        brain = context.chat_data["brain"]
+    if "conversation" in context.chat_data :
+        conversation = context.chat_data["conversation"]
     else:
         logger.info("New user detected: "+update.effective_user.username)
-        brain = Brain()
-        brain.populate_memory("training.jsonl")
+        conversation = Conversation()
+        conversation.populate_memory("training.jsonl")
         intro_dialog = Dialogue()
-        intro_dialog.set_question("Human: By the way, my name is "+update.effective_user.first_name)
-        intro_dialog.set_thought("Jarvis thinks: "+update.effective_user.first_name+"seems friendly. I can't wait to find our more about him or her.")
+        intro_dialog.set_question("Human: My name is "+update.effective_user.first_name)
         intro_dialog.set_answer("Jarvis: Hi "+update.effective_user.first_name+", how can I help you?")
-        brain.add_to_memory(intro_dialog)
+        conversation.add_to_memory(intro_dialog)
 
     # Create a new dialogue    
     dialog = Dialogue()
     dialog.set_question("Human: "+update.message.text)
-    reply = get_answer(brain.get_complete_context()+dialog.get_question(), tg_user=str(update.effective_user.id))
+    reply = get_answer(conversation.get_complete_context()+dialog.get_question(), tg_user=str(update.effective_user.id))
     dialog.populate(reply)
-    brain.add_to_memory(dialog) 
+    conversation.add_to_memory(dialog) 
     
     # Send the message back
-    await update.message.reply_text(dialog.get_answer()[dialog.get_answer().index("Jarvis: ")+8:])
+    await update.message.reply_text(dialog.get_answer().replace('Jarvis: ',''))
 
     # Update persisted context
-    context.chat_data["brain"] = brain
-    logger.info(f"{str(update.effective_user.id)}: {dialog.get_question()} , {dialog.get_answer()} , {dialog.get_thought()}")
+    context.chat_data["conversation"] = conversation
+    logger.info(f"{str(update.effective_user.id)} --> {dialog.get_question()} , {dialog.get_answer()}")
     return CONVERSATION
 
 
@@ -148,7 +143,7 @@ def main() -> None:
 
     application.add_handler(conv_handler)
 
-    #application.run_polling()
+    application.run_polling()
 
     # Start the Bot
     logger.info("Starting webhook...")
