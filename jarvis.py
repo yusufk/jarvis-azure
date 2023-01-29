@@ -143,18 +143,21 @@ def main() -> None:
 
     application.add_handler(conv_handler)
 
-    application.run_polling()
-
     # Start the Bot
-    logger.info("Starting webhook...")
-    application.run_webhook(
-        listen='0.0.0.0',
-        port=8000,
-        secret_token=telegram_webhook_token,
-        #key='private.key',
-        #cert='cert.pem',
-        webhook_url=telegram_webhook_url
-    )
+    run_as_polling = os.env.get("RUN_POLL", False)
+    if run_as_polling:
+        logger.info("Starting polling...")
+        application.run_polling()
+    else:
+        logger.info("Starting webhook...")
+        application.run_webhook(
+            listen='0.0.0.0',
+            port=8000,
+            secret_token=telegram_webhook_token,
+            #key='private.key',
+            #cert='cert.pem',
+            webhook_url=telegram_webhook_url
+        )
 
 
 if __name__ == "__main__":
