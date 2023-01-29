@@ -18,7 +18,8 @@ import os
 import openai
 import telegram
 from typing import Dict
-from conversation import Conversation, Dialogue
+from conversation import Conversation
+from dialogue import Dialogue
 
 from telegram import __version__ as TG_VER
 
