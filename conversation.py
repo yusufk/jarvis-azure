@@ -52,12 +52,14 @@ class Conversation:
                 dialogue.populate(line["completion"])
                 self.add_to_memory(dialogue)
 
-    def get_complete_context(self):
+    def get_complete_context(self, question=None):
         complete_context = self.context+"\n\n"
         # iterate through memory and add to context
         for dialogue in self.memory:
             complete_context += dialogue.get_question()+"\n"
             complete_context += dialogue.get_answer()+"\n\n"
+        if question:
+            complete_context += question+"\n"
         complete_context += "Jarvis: "
         return complete_context
 
