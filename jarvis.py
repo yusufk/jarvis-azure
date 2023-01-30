@@ -91,6 +91,8 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Chat back based on the user message."""
     user_id = update.effective_user.id
     user_handle = update.effective_user.username
+    if user_handle is None:
+        user_handle = "Unknown"
     if user_id not in white_list:
         logging.warning(f"Unauthorized access denied for user {user_handle} with id {user_id}.")
         await update.message.reply_text("You're not authorized to use this bot. Please contact the bot owner.")
@@ -100,7 +102,8 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if "conversation" in context.chat_data :
         conversation = context.chat_data["conversation"]
     else:
-        logger.info("New user detected: "+update.effective_user.username)
+        # Create a new conversation
+        logger.info(f"New user detected: {user_handle} with id {user_id}")
         conversation = Conversation()
         conversation.populate_memory("training.jsonl")
         intro_dialog = Dialogue()
