@@ -1,16 +1,14 @@
-# Description: A simple AI assistant that can answer questions and perform tasks via a Telegram bot.
 #!/usr/bin/env python
-# pylint: disable=unused-argument, wrong-import-position
 # This program is dedicated to the public domain under the CC0 license.
 
 """
-First, a few callback functions are defined. Then, those functions are passed to
-the Application and registered at their respective places.
-Then, the bot is started and runs until we press Ctrl-C on the command line.
-
+An intelligent AI assistant that can answer questions and perform tasks via a Telegram bot powered by Azure OpenAI.
+It uses the Updater class to handle the bot.
+First, a few callback functions are defined. Then, those functions are passed to the Dispatcher and
+registered at their respective places. Then, the bot is started and runs until we press Ctrl-C on the
+command line.
 Usage:
-Example of a bot-user conversation using ConversationHandler.
-Send /start to initiate the conversation.
+ConversationBot example, ConversationHandler and PicklePersistence.
 Press Ctrl-C on the command line or send a signal to the process to stop the
 bot.
 """
@@ -20,6 +18,7 @@ import os
 import openai
 import telegram
 from typing import Dict
+from conversation import Conversation, Dialogue
 
 from telegram import __version__ as TG_VER
 
@@ -58,48 +57,70 @@ load_dotenv()
 
 telegram_token = os.getenv("TELEGRAM_TOKEN")
 telegram_webhook_token = os.getenv("WEBHOOK_TOKEN")
-logger.info("Telegram token: "+telegram_token)
+telegram_webhook_url = os.getenv("WEBHOOK_URL")
+white_list_str = os.getenv("WHITE_LIST").split(",")
+white_list = [int(x) for x in white_list_str]
+master_id = white_list[0]
 
 # Initialise OpenAI
 openai.api_type = "azure"
 openai.api_base = "https://jarvis-openai.openai.azure.com/"
 openai.api_version = "2022-12-01"
 openai.api_key = os.getenv("OPENAI_KEY")
+openai_temp = os.getenv("TEMPERATURE")
+openai_top_p = os.getenv("TOP_PROB")
+openai_engine = os.getenv("ENGINE")
+openai_max_tokens = os.getenv("MAX_TOKENS")
 
-INTRO, CONVERSATION = range(2)
-chat_context = "The following is a conversation with an AI assistant called Jarvis. The assistant is helpful, creative, clever, and very friendly.\n\nHuman: Hello, who are you?\nAI: I am an AI created by OpenAI. How can I help you today?\nHuman: Who are you?\nAI:"
+CONVERSATION = range(1)
 
-def get_answer(question):
+def get_answer(question, tg_user=None):
   response = openai.Completion.create(
-  engine="davinci2deployment",
+  engine=openai_engine,
   prompt=question,
-  temperature=0,
-  max_tokens=64,
-  top_p=1,
+  temperature=float(openai_temp),
+  max_tokens=int(openai_max_tokens),
+  top_p=float(openai_top_p),
   frequency_penalty=0,
   presence_penalty=0,
-  stop=None)
+  stop=None,
+  user=tg_user)
   return response.choices[0].text
-
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Send a message when the command /start is issued."""
-    context.chat_data["history"] = chat_context
-    user = update.effective_user
-    await update.message.reply_html(
-        rf"Hi {user.mention_html()}!",
-        reply_markup=ForceReply(selective=True),
-    )
-    reply = get_answer(chat_context)
-    await update.message.reply_text(reply)
-    context.chat_data["history"] += reply
-    return CONVERSATION
 
 async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Chat back based on the user message."""
-    context.chat_data["history"]+="\nHuman: "+update.message.text
-    reply = get_answer(context.chat_data["history"]+"\nAI: ")
-    await update.message.reply_text(reply)
-    context.chat_data["history"] += "\nAI: "+reply
+    user_id = update.effective_user.id
+    user_handle = update.effective_user.username
+    if user_id not in white_list:
+        logging.warning(f"Unauthorized access denied for user {user_handle} with id {user_id}.")
+        await update.message.reply_text("You're not authorized to use this bot. Please contact the bot owner.")
+        return CONVERSATION
+
+    # Get the persisted context
+    if "conversation" in context.chat_data :
+        conversation = context.chat_data["conversation"]
+    else:
+        logger.info("New user detected: "+update.effective_user.username)
+        conversation = Conversation()
+        conversation.populate_memory("training.jsonl")
+        intro_dialog = Dialogue()
+        intro_dialog.set_question("Human: My name is "+update.effective_user.first_name)
+        intro_dialog.set_answer("Jarvis: Hi "+update.effective_user.first_name+", how can I help you?")
+        conversation.add_to_memory(intro_dialog)
+
+    # Create a new dialogue    
+    dialog = Dialogue()
+    dialog.set_question("Human: "+update.message.text)
+    reply = get_answer(conversation.get_complete_context(dialog.get_question()), tg_user=str(update.effective_user.id))
+    dialog.populate(reply)
+    conversation.add_to_memory(dialog) 
+    
+    # Send the message back
+    await update.message.reply_text(dialog.get_answer().replace('Jarvis: ',''))
+
+    # Update persisted context
+    context.chat_data["conversation"] = conversation
+    logger.info(f"{str(update.effective_user.id)} --> {dialog.get_question()} , {dialog.get_answer()}")
     return CONVERSATION
 
 
@@ -111,30 +132,32 @@ def main() -> None:
 
     # Add conversation handler with the states INTRO and CONVERSATION
     conv_handler = ConversationHandler(
-        entry_points=[CommandHandler("start", start)],
+        entry_points=[MessageHandler(filters.TEXT & ~filters.COMMAND, chat)],
         states={
-            INTRO: [MessageHandler(filters.TEXT & ~filters.COMMAND, start)],
             CONVERSATION: [MessageHandler(filters.TEXT & ~filters.COMMAND, chat)],
         },
-        fallbacks=[CommandHandler("cancel", start)],
+        fallbacks=[MessageHandler(filters.TEXT & ~filters.COMMAND, chat)],
         name="my_conversation",
         persistent=True,
     )
 
     application.add_handler(conv_handler)
 
-    #application.run_polling()
-
     # Start the Bot
-    logger.info("Starting webhook...")
-    application.run_webhook(
-        listen='0.0.0.0',
-        port=8000,
-        secret_token=telegram_webhook_token,
-        #key='private.key',
-        #cert='cert.pem',
-        webhook_url='https://jarvis-app.delightfulpond-bcd4c846.westeurope.azurecontainerapps.io'
-    )
+    run_as_polling = os.getenv("RUN_POLL", False)
+    if run_as_polling:
+        logger.info("Starting polling...")
+        application.run_polling()
+    else:
+        logger.info("Starting webhook...")
+        application.run_webhook(
+            listen='0.0.0.0',
+            port=8000,
+            secret_token=telegram_webhook_token,
+            #key='private.key',
+            #cert='cert.pem',
+            webhook_url=telegram_webhook_url
+        )
 
 
 if __name__ == "__main__":
