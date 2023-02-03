@@ -1,3 +1,4 @@
 .env
 conversationbot
 __pycache__/
+embeddings_cache.pkl

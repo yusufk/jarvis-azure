@@ -18,7 +18,11 @@ import os
 import openai
 import telegram
 from typing import Dict
-from conversation import Conversation, Dialogue
+from prompt_engine.prompt_engine import PromptEngineConfig
+from prompt_engine.interaction import Interaction 
+from prompt_engine.model_config import ModelConfig
+from prompt_engine.dynamic_prompt_engine import DynamicPromptEngine, PromptBank
+import json
 
 from telegram import __version__ as TG_VER
 
@@ -72,6 +76,19 @@ openai_top_p = os.getenv("TOP_PROB")
 openai_engine = os.getenv("ENGINE")
 openai_max_tokens = os.getenv("MAX_TOKENS")
 
+# Initialise Prompt Engine
+config = PromptEngineConfig(ModelConfig(max_tokens=1024), description_prefix = "###")
+description = f"You are an AI assistant called Jarvis, with a personality of the Marvel character you're named after. You are curious, helpful, creative, witty, proffessional, humorous and sometimes sarcastic. You will be chatting to multiple people and learning from them. \
+A user, Yusuf with user id {master_id}, is your master and will be training you."
+with open("training.jsonl", "r") as f:
+    training_data = f.readlines()
+master_context = []
+for line in training_data:
+    line = json.loads(line)
+    master_context.append(Interaction(line["prompt"].replace("Human:",str(master_id)+":") , line["completion"]))
+dynamic_engine = DynamicPromptEngine(openai_key = openai.api_key, config = config, description = description, examples=master_context, prompt_bank = PromptBank())
+del dynamic_engine
+
 CONVERSATION = range(1)
 
 def get_answer(question, tg_user=None):
@@ -96,39 +113,26 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text("You're not authorized to use this bot. Please contact the bot owner.")
         return CONVERSATION
 
-    # Get the persisted context
-    if "conversation" in context.chat_data :
-        conversation = context.chat_data["conversation"]
-    else:
-        logger.info("New user detected: "+update.effective_user.username)
-        conversation = Conversation()
-        conversation.populate_memory("training.jsonl")
-        intro_dialog = Dialogue()
-        intro_dialog.set_question("Human: My name is "+update.effective_user.first_name)
-        intro_dialog.set_answer("Jarvis: Hi "+update.effective_user.first_name+", how can I help you?")
-        conversation.add_to_memory(intro_dialog)
-
-    # Create a new dialogue    
-    dialog = Dialogue()
-    dialog.set_question("Human: "+update.message.text)
-    reply = get_answer(conversation.get_complete_context(dialog.get_question()), tg_user=str(update.effective_user.id))
-    dialog.populate(reply)
-    conversation.add_to_memory(dialog) 
+    contextual_description = description + "You are now chatting with a user with user id " + str(user_id) + "."
+    dynamic_engine = DynamicPromptEngine(openai_key = openai.api_key, config = config, description = contextual_description, prompt_bank = PromptBank())
+    prompt = dynamic_engine.build_prompt(str(user_id)+" :"+update.message.text)
+    reply = get_answer(prompt, tg_user=str(update.effective_user.id))
+    dynamic_engine.add_interaction(prompt, reply)
     
     # Send the message back
-    await update.message.reply_text(dialog.get_answer().replace('Jarvis: ',''))
+    await update.message.reply_text(reply.replace('Jarvis: ',''))
 
     # Update persisted context
-    context.chat_data["conversation"] = conversation
-    logger.info(f"{str(update.effective_user.id)} --> {dialog.get_question()} , {dialog.get_answer()}")
+    #context.chat_data["conversation"] = conversation
+    logger.info(f"{str(update.effective_user.id)} --> {update.message.text} , {reply}")
     return CONVERSATION
 
 
 def main() -> None:
     """Run the bot."""
     # Create the Application and pass it your bot's token.
-    persistence = PicklePersistence(filepath="conversationbot")
-    application = Application.builder().token(telegram_token).persistence(persistence).build()
+    #persistence = PicklePersistence(filepath="conversationbot")
+    application = Application.builder().token(telegram_token).build()#.persistence(persistence).build()
 
     # Add conversation handler with the states INTRO and CONVERSATION
     conv_handler = ConversationHandler(
@@ -138,7 +142,7 @@ def main() -> None:
         },
         fallbacks=[MessageHandler(filters.TEXT & ~filters.COMMAND, chat)],
         name="my_conversation",
-        persistent=True,
+        #persistent=True,
     )
 
     application.add_handler(conv_handler)

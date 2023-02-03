@@ -5,10 +5,17 @@ description = "Jarvis AI bot, powered by Azure OpenAI"
 authors = ["Yusuf Kaka <yusufk@gmail.com>"]
 
 [tool.poetry.dependencies]
-python = "^3.10"
+python = "^3.10,<3.12"
 openai = "^0.26.1"
 python-telegram-bot = {extras = ["webhooks"], version = "^20.0"}
 python-dotenv = "^0.21.1"
+prompt-engine-py = "^0.0.2"
+regex = "^2022.10.31"
+pyyaml = "^6.0"
+matplotlib = "^3.6.3"
+plotly = "^5.13.0"
+scipy = "^1.10.0"
+scikit-learn = "^1.2.1"
 
 [tool.poetry.dev-dependencies]
 
