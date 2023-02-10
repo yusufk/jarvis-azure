@@ -104,7 +104,7 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     else:
         # Create a new conversation
         logger.info(f"New user detected: {user_handle} with id {user_id}")
-        conversation = Conversation()
+        conversation = Conversation(user_id=user_id)
 
     # Create a new dialogue    
     dialog = Dialogue()
