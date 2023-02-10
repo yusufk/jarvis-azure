@@ -89,11 +89,11 @@ def get_answer(question, tg_user=None):
 
 async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Chat back based on the user message."""
-    user_id = update.effective_user.id
+    user_id = str(update.effective_user.id)
     user_handle = update.effective_user.username
     if user_handle is None:
         user_handle = "Unknown"
-    if user_id not in white_list:
+    if update.effective_user.id not in white_list:
         logging.warning(f"Unauthorized access denied for user {user_handle} with id {user_id}.")
         await update.message.reply_text("You're not authorized to use this bot. Please contact the bot owner.")
         return CONVERSATION
@@ -105,18 +105,13 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         # Create a new conversation
         logger.info(f"New user detected: {user_handle} with id {user_id}")
         conversation = Conversation()
-        conversation.populate_memory("training.jsonl")
-        intro_dialog = Dialogue()
-        intro_dialog.set_question("Human: My name is "+update.effective_user.first_name)
-        intro_dialog.set_answer("Jarvis: Hi "+update.effective_user.first_name+", how can I help you?")
-        conversation.add_to_memory(intro_dialog)
 
     # Create a new dialogue    
     dialog = Dialogue()
-    dialog.set_question("Human: "+update.message.text)
-    reply = get_answer(conversation.get_complete_context(dialog.get_question()), tg_user=str(update.effective_user.id))
+    conversation.add_to_memory(dialog)
+    dialog.set_question(user_id+": "+update.message.text)
+    reply = get_answer(conversation.get_complete_context(), tg_user=user_id)
     dialog.populate(reply)
-    conversation.add_to_memory(dialog) 
     
     # Send the message back
     await update.message.reply_text(dialog.get_answer().replace('Jarvis: ',''))

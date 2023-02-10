@@ -23,10 +23,14 @@ class Dialogue:
         self.answer = reply.rstrip('\n')
 
 class Conversation:
-    def __init__(self):
-        self.context = "The following is a conversation with an AI assistant called Jarvis, with personality like the Marvel character he's named after. The assistant is curious, helpful, creative, witty, proffessional, humorous and sometimes sarcastic. The AI assistant also has an internal dialogue as thoughts."
+    def __init__(self, user_id=None):
+        self.context = "The following is a conversation with an AI assistant named Jarvis.\
+            Jarvis has a personality like the Marvel character he's named after. \
+                He is curious, helpful, creative, very witty and a bit sarcastic."
         self.memory = []
         self.memory_size = 50
+        self.user_id = user_id
+        self.populate_memory("training.jsonl")
         
     def add_to_memory(self, dialogue):
         if len(self.memory) == self.memory_size:
@@ -45,28 +49,28 @@ class Conversation:
                 dialogue = Dialogue()
                 # Parse the json line into a dialogue object
                 # e.g. {"prompt": "Human: Hello, pleased to meet you, my name is Yusuf", "completion": "Jarvis thinks: What a friendly person, looking forward to finding out more.\nJarvis: Hi Yusuf, it's a pleasure to meet you too."}
-                # where the question is "Hello, pleased to meet you, my name is Yusuf" and the answer is "Hi Yusuf, it's a pleasure to meet you too. and the thought is "What a friendly person, looking forward to finding out more."
-                # and the thought is "What a friendly person, looking forward to finding out more."
                 line = json.loads(line)
-                dialogue.question = line["prompt"]
+                dialogue.question = line["prompt"].replace("Human: ",self.user_id+": ")
                 dialogue.populate(line["completion"])
                 self.add_to_memory(dialogue)
 
-    def get_complete_context(self, question=None):
+    def get_complete_context(self):
         complete_context = self.context+"\n\n"
         # iterate through memory and add to context
         for dialogue in self.memory:
             complete_context += dialogue.get_question()+"\n"
-            complete_context += dialogue.get_answer()+"\n\n"
-        if question:
-            complete_context += question+"\n"
-        complete_context += "Jarvis: "
+            if dialogue.get_answer() != "":
+                complete_context += dialogue.get_answer()+"\n\n"
+            else:
+                complete_context += "Jarvis: "
         return complete_context
 
 # If main.py is run as a script, run the main function
 if __name__ == "__main__":
-    conversation = Conversation()
-    conversation.populate_memory("training.jsonl")
+    conversation = Conversation('1234')
+    dialog = Dialogue()
+    dialog.set_question("1234: Hello, pleased to meet you, my name is Yusuf")
+    conversation.add_to_memory(dialog)
     print(conversation.get_complete_context())
     
     
