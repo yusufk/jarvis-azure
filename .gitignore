@@ -1,3 +1,5 @@
 .env
 conversationbot
 __pycache__/
+jarvis-container-app.yaml
+commands.txt
