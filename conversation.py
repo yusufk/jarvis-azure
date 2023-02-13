@@ -34,12 +34,12 @@ class Conversation:
         self.tokens_used = len(self.get_complete_context())//4
         
     def add_to_memory(self, dialogue):
-        if ((len(self.memory) == self.memory_size)):
+        if (len(self.memory) == self.memory_size):
             self.add_to_training_file(self.memory[0])
             self.memory.pop(0)
         self.tokens_used = len(self.get_complete_context())//4
         self.memory.append(dialogue)
-        while self.tokens_used > self.token_limit:
+        while (self.tokens_used > self.token_limit):
             self.add_to_training_file(self.memory[0])
             self.memory.pop(0)
             self.tokens_used = len(self.get_complete_context())//4
