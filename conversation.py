@@ -1,5 +1,6 @@
 # A class for the brain of the AI assistant keeping track of a conversation as a series of dialogues in a circular buffer.
 import json
+import os
 
 class Dialogue:
     def __init__(self):
@@ -34,12 +35,14 @@ class Conversation:
         
     def add_to_memory(self, dialogue):
         if ((len(self.memory) == self.memory_size)):
+            self.add_to_training_file(self.memory[0])
             self.memory.pop(0)
         self.tokens_used = len(self.get_complete_context())//4
+        self.memory.append(dialogue)
         while self.tokens_used > self.token_limit:
+            self.add_to_training_file(self.memory[0])
             self.memory.pop(0)
             self.tokens_used = len(self.get_complete_context())//4
-        self.memory.append(dialogue)
         
     def get_memory(self):
         return self.memory
@@ -57,6 +60,11 @@ class Conversation:
                 dialogue.question = line["prompt"].replace("Human: ",self.user_id+": ")
                 dialogue.populate(line["completion"])
                 self.add_to_memory(dialogue)
+    
+    def add_to_training_file(self, dialogue):
+        path = os.getenv("PERSISTENCE_PATH","/volumes/persist/")
+        with open(path+"training_"+self.user_id+".jsonl", "w+") as f:
+            f.write(json.dumps({"prompt": dialogue.get_question(), "completion": dialogue.get_answer()})+"\n")
 
     def get_complete_context(self):
         complete_context = self.context+"\n\n"

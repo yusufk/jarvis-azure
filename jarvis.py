@@ -125,8 +125,8 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 def main() -> None:
     """Run the bot."""
     # Create the Application and pass it your bot's token.
-    path = os.getenv("PERSISTENCE_PATH","/volumes/persist/jarvis_brain.pkl")
-    persistence = PicklePersistence(filepath=path)
+    path = os.getenv("PERSISTENCE_PATH","/volumes/persist/")
+    persistence = PicklePersistence(filepath=path+"jarvis_brain.pkl")
     application = Application.builder().token(telegram_token).persistence(persistence).build()
 
     # Add conversation handler with the states INTRO and CONVERSATION
