@@ -26,13 +26,19 @@ class Conversation:
     def __init__(self, user_id=None):
         self.context = "The following is a conversation with an AI assistant named Jarvis. Jarvis has a personality like the Marvel character he's named after. He is curious, helpful, creative, very witty and a bit sarcastic."
         self.memory = []
+        self.token_limit = 4097
         self.memory_size = 50
         self.user_id = user_id
         self.populate_memory("training.jsonl")
+        self.tokens_used = len(self.get_complete_context())//4
         
     def add_to_memory(self, dialogue):
-        if len(self.memory) == self.memory_size:
+        if ((len(self.memory) == self.memory_size)):
             self.memory.pop(0)
+        self.tokens_used = len(self.get_complete_context())//4
+        while self.tokens_used > self.token_limit:
+            self.memory.pop(0)
+            self.tokens_used = len(self.get_complete_context())//4
         self.memory.append(dialogue)
         
     def get_memory(self):
