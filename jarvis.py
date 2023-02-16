@@ -99,7 +99,7 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return CONVERSATION
 
     # Get the persisted context
-    if "conversation" in context.chat_data :
+    if ("conversation" in context.chat_data):
         conversation = context.chat_data["conversation"]
     else:
         # Create a new conversation
