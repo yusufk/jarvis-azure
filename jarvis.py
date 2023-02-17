@@ -108,8 +108,8 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     # Create a new dialogue    
     dialog = Dialogue()
-    conversation.add_to_memory(dialog)
     dialog.set_question(user_id+": "+update.message.text)
+    conversation.add_to_memory(dialog) # do this before getting complete context or it might overflow!
     reply = get_answer(conversation.get_complete_context(), tg_user=user_id)
     dialog.populate(reply)
     
