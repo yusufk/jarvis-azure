@@ -59,7 +59,7 @@ class Conversation:
     
     def add_to_training_file(self, dialogue):
         path = os.getenv("PERSISTENCE_PATH","/volumes/persist/")
-        with open(path+"training_"+self.user_id+".jsonl", "w+") as f:
+        with open(path+"training_"+self.user_id+".jsonl", "a+") as f:
             f.write(json.dumps({"prompt": dialogue.get_question(), "completion": dialogue.get_answer()})+"\n")
 
     def get_complete_context(self):
