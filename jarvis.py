@@ -116,7 +116,12 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     dialog = Dialogue()
     dialog.set_question(user_id+": "+update.message.text)
     conversation.add_to_memory(dialog) # do this before getting complete context or it might overflow!
-    reply = get_answer(conversation.get_complete_context(), tg_user=user_id)
+    try:
+        reply = get_answer(conversation.get_complete_context(), tg_user=user_id)
+    except openai.error.InvalidRequestError as e:
+        logger.error(f"Error: {e}")
+        await update.message.reply_text("Sorry, I'm having some issues. Please try again later.")
+        return CONVERSATION
     dialog.populate(reply)
     
     # Send the message back
@@ -130,6 +135,15 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     logger.debug(f"{str(update.effective_user.id)} --> {dialog.get_question()} , Jarvis: {dialog.get_answer()}")
     return CONVERSATION
 
+async def clear(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Clear the conversation."""
+    if update.effective_user.id != master_id:
+        await update.message.reply_text("You're not authorized to use this bot. Please contact the bot owner.")
+        return CONVERSATION
+    context.chat_data["conversation"] = Conversation(user_id=str(update.effective_user.id))
+    await update.message.reply_text("Conversation cleared.")
+    logger.info(f"Conversation cleared by {update.effective_user.id}")
+    return CONVERSATION
 
 def main() -> None:
     """Run the bot."""
@@ -148,7 +162,8 @@ def main() -> None:
         name="my_conversation",
         persistent=True,
     )
-
+    command_handler = CommandHandler("clear", clear)
+    application.add_handler(command_handler)
     application.add_handler(conv_handler)
 
     # Start the Bot

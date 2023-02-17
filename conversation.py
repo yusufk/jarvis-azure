@@ -35,7 +35,7 @@ class Conversation:
     def __init__(self, user_id=None):
         self.context = "The following is a conversation with an AI assistant named Jarvis. Jarvis has a personality like the Marvel character he's named after. He is curious, helpful, creative, very witty and a bit sarcastic."
         self.memory = []
-        self.token_limit = os.getenv("CONTEXT_TOKEN_LIMIT",3070) # Token limit 4097 - 1024 for response
+        self.token_limit = int(os.getenv("CONTEXT_TOKEN_LIMIT",3070)) # Token limit 4097 - 1024 for response
         self.memory_size = 50
         self.user_id = user_id
         self.populate_memory("training.jsonl")
