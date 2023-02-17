@@ -118,7 +118,7 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     # Update persisted context
     context.chat_data["conversation"] = conversation
-    logger.info(f"{str(update.effective_user.id)} --> {dialog.get_question()} , {dialog.get_answer()}")
+    logger.info(f"{str(update.effective_user.id)} --> {dialog.get_question()} , Jarvis: {dialog.get_answer()}")
     return CONVERSATION
 
 
