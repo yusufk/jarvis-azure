@@ -1,6 +1,14 @@
 # A class for the brain of the AI assistant keeping track of a conversation as a series of dialogues in a circular buffer.
 import json
 import os
+import logging
+
+# Enable logging
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+)
+logger = logging.getLogger(__name__)
+logger.info("Conversation class loaded...")
 
 class Dialogue:
     def __init__(self):
@@ -31,10 +39,9 @@ class Conversation:
         self.memory_size = 50
         self.user_id = user_id
         self.populate_memory("training.jsonl")
-        self.tokens_used = len(self.get_complete_context())//4
         
     def add_to_memory(self, dialogue):
-        if (len(self.memory) == self.memory_size):
+        if (len(self.memory) >= self.memory_size):
             self.add_to_training_file(self.memory[0])
             self.memory.pop(0)
         self.memory.append(dialogue)
@@ -63,6 +70,7 @@ class Conversation:
             f.write(json.dumps({"prompt": dialogue.get_question(), "completion": dialogue.get_answer()})+"\n")
 
     def get_complete_context(self):
+        self.archive_extra_memories()
         complete_context = self.context+"\n\n"
         # iterate through memory and add to context
         for dialogue in self.memory:
@@ -71,14 +79,24 @@ class Conversation:
                 complete_context += dialogue.get_answer()+"\n\n"
             else:
                 complete_context += "Jarvis: "
+        logging.debug("Context: "+complete_context)
         return complete_context
 
     def archive_extra_memories(self):
         # Trim the context to the last 50 dialogues
-        self.tokens_used = len(self.get_complete_context())//4
-        while (self.tokens_used > self.token_limit):
+        context_size = len(self.context)
+        for dialogue in self.memory:
+            context_size += len(dialogue.get_question())+1
+            if dialogue.get_answer() != "":
+                context_size += len(dialogue.get_answer())+2
+            else:
+                context_size += 8
+
+        while (context_size > self.token_limit*4):
+            logging.debug("Context size: "+str(context_size)+", cutting a few dialogues from the memory...")
             self.add_to_training_file(self.memory[0])
-            self.memory.pop(0)
+            dialog = self.memory.pop(0)
+            context_size -= len(dialog.get_question())+1 + len(dialog.get_answer())+2
 
 # If main.py is run as a script, run the main function
 if __name__ == "__main__":

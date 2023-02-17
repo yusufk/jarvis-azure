@@ -91,10 +91,16 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Chat back based on the user message."""
     user_id = str(update.effective_user.id)
     user_handle = update.effective_user.username
+    user_first_name = update.effective_user.first_name
+    user_last_name = update.effective_user.last_name
     if user_handle is None:
         user_handle = "Unknown"
+    if user_first_name is None:
+        user_first_name = "Unknown"
+    if user_last_name is None:
+        user_last_name = "Unknown"
     if update.effective_user.id not in white_list:
-        logging.warning(f"Unauthorized access denied for user {user_handle} with id {user_id}.")
+        logging.warning(f"Unauthorized access denied for user {user_handle} with id {user_id} and name {user_first_name} {user_last_name}.")
         await update.message.reply_text("You're not authorized to use this bot. Please contact the bot owner.")
         return CONVERSATION
 
@@ -118,7 +124,7 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     # Update persisted context
     context.chat_data["conversation"] = conversation
-    logger.info(f"{str(update.effective_user.id)} --> {dialog.get_question()} , Jarvis: {dialog.get_answer()}")
+    logger.debug(f"{str(update.effective_user.id)} --> {dialog.get_question()} , Jarvis: {dialog.get_answer()}")
     return CONVERSATION
 
 
