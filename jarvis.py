@@ -120,7 +120,10 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     dialog.populate(reply)
     
     # Send the message back
-    await update.message.reply_text(dialog.get_answer().replace('Jarvis: ',''))
+    message = dialog.get_answer().replace('Jarvis: ','').replace(user_id+': ','').strip()
+    msgs = [message[i:i + 4096] for i in range(0, len(message), 4096)]
+    for text in msgs:
+        await update.message.reply_text(text=text)
 
     # Update persisted context
     context.chat_data["conversation"] = conversation
