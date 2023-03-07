@@ -4,3 +4,5 @@ __pycache__/
 jarvis-container-app.yaml
 commands.txt
 jarvis_brain.pkl
+components/
+training_*
