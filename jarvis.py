@@ -161,7 +161,7 @@ async def clear(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 def main() -> None:
     """Run the bot."""
     # Create the Application and pass it your bot's token.
-    path = os.getenv("PERSISTENCE_PATH","/volumes/persist/")
+    path = os.getenv("PERSISTENCE_PATH","./")
     persistence = PicklePersistence(filepath=path+"jarvis_brain.pkl")
     application = Application.builder().token(telegram_token).persistence(persistence).build()
 
@@ -175,8 +175,8 @@ def main() -> None:
         name="my_conversation",
         persistent=True,
     )
-    command_handler = CommandHandler("clear", clear)
-    application.add_handler(command_handler)
+#    command_handler = CommandHandler("clear", clear)
+#    application.add_handler(command_handler)
     application.add_handler(conv_handler)
 
     # Start the Bot
