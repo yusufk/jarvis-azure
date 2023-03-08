@@ -45,8 +45,21 @@ from telegram.ext import (
 )
 
 # Enable logging
+debug_level = os.getenv("DEBUG_LEVEL", "INFO")
+if (debug_level == "DEBUG"):
+    debug_level = logging.DEBUG
+elif (debug_level == "INFO"):
+    debug_level = logging.INFO
+elif (debug_level == "WARNING"):
+    debug_level = logging.WARNING
+elif (debug_level == "ERROR"):
+    debug_level = logging.ERROR
+elif (debug_level == "CRITICAL"):
+    debug_level = logging.CRITICAL
+else:
+    debug_level = logging.INFO
 logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=debug_level
 )
 logger = logging.getLogger(__name__)
 logger.info("Starting Jarvis...")
