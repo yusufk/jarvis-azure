@@ -47,18 +47,17 @@ class Conversation:
         self.memory_size = 50
         self.user_id = user_id
         self.populate_memory("training.jsonl")
-    
-        # Initialise OpenAI
-        openai.api_type = "azure"
-        openai.api_base = "https://jarvis-openai.openai.azure.com/"
-        openai.api_version = "2022-12-01"
-        openai.api_key = os.getenv("OPENAI_KEY")
         self.openai_temp = os.getenv("TEMPERATURE")
         self.openai_top_p = os.getenv("TOP_PROB")
         self.openai_engine = os.getenv("ENGINE")
         self.openai_max_tokens = os.getenv("MAX_TOKENS")
 
     def get_answer(self, question, tg_user=None):
+        # Initialise OpenAI
+        openai.api_type = "azure"
+        openai.api_base = "https://jarvis-openai.openai.azure.com/"
+        openai.api_version = "2022-12-01"
+        openai.api_key = os.getenv("OPENAI_KEY")
         try:
             response = openai.Completion.create(
             engine=self.openai_engine,
