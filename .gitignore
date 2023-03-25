@@ -7,3 +7,4 @@ jarvis_brain.pkl
 components/
 training_*
 context.txt
+deployment.yaml

@@ -49,10 +49,13 @@ class Conversation:
         
     def add_to_memory(self, dialogue):
         while (len(self.memory) >= self.memory_size):
-            self.add_to_training_file(self.memory[0])
-            self.memory.pop(0)
+            self.purge_a_memory()
         self.memory.append(dialogue)
         self.archive_extra_memories()
+
+    def purge_a_memory(self):
+        self.add_to_training_file(self.memory[0])
+        self.memory.pop(0)
         
     def get_memory(self):
         return self.memory

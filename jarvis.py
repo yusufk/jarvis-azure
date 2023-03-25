@@ -134,6 +134,7 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     except openai.error.InvalidRequestError as e:
         logger.error(f"Error: {e}")
         await update.message.reply_text("Sorry, I'm having some issues. Please try again later.")
+        conversation.purge_a_memory()
         return CONVERSATION
     dialog.populate(reply)
     
