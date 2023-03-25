@@ -25,9 +25,16 @@ class Dialogue:
 
 class Conversation:
     def __init__(self, user_id=None):
-        self.context = "The following is a conversation with an AI assistant named Jarvis. Jarvis has a personality like the Marvel character he's named after. He is curious, helpful, creative, very witty and a bit sarcastic."
+        # Create the Application and pass it your bot's token.
+        path = os.getenv("PERSISTENCE_PATH","/volumes/persist/")
+        contextFIle = path+"context.txt"
+        if os.path.exists(contextFIle):
+            with open(contextFIle, "r") as f:
+                self.context = f.read()
+        else:
+            self.context = "The following is a conversation with an AI assistant, Jarvis. Jarvis has a personality like the Marvel character he's named after. He is curious, helpful, creative, very witty and a bit sarcastic."
         self.memory = []
-        self.token_limit = 4097
+        self.token_limit = 4097-1024
         self.memory_size = 50
         self.user_id = user_id
         self.populate_memory("training.jsonl")
@@ -43,6 +50,7 @@ class Conversation:
             self.add_to_training_file(self.memory[0])
             self.memory.pop(0)
             self.tokens_used = len(self.get_complete_context())//4
+            self.memory_size = len(self.memory)
         
     def get_memory(self):
         return self.memory
