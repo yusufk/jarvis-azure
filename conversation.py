@@ -48,7 +48,7 @@ class Conversation:
         self.populate_memory("training.jsonl")
         
     def add_to_memory(self, dialogue):
-        if (len(self.memory) >= self.memory_size):
+        while (len(self.memory) >= self.memory_size):
             self.add_to_training_file(self.memory[0])
             self.memory.pop(0)
         self.memory.append(dialogue)
