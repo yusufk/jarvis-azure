@@ -45,8 +45,21 @@ from telegram.ext import (
 )
 
 # Enable logging
+debug_level = os.getenv("DEBUG_LEVEL", "INFO")
+if (debug_level == "DEBUG"):
+    debug_level = logging.DEBUG
+elif (debug_level == "INFO"):
+    debug_level = logging.INFO
+elif (debug_level == "WARNING"):
+    debug_level = logging.WARNING
+elif (debug_level == "ERROR"):
+    debug_level = logging.ERROR
+elif (debug_level == "CRITICAL"):
+    debug_level = logging.CRITICAL
+else:
+    debug_level = logging.INFO
 logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=debug_level
 )
 logger = logging.getLogger(__name__)
 logger.info("Starting Jarvis...")
@@ -91,15 +104,21 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Chat back based on the user message."""
     user_id = str(update.effective_user.id)
     user_handle = update.effective_user.username
+    user_first_name = update.effective_user.first_name
+    user_last_name = update.effective_user.last_name
     if user_handle is None:
         user_handle = "Unknown"
+    if user_first_name is None:
+        user_first_name = "Unknown"
+    if user_last_name is None:
+        user_last_name = "Unknown"
     if update.effective_user.id not in white_list:
-        logging.warning(f"Unauthorized access denied for user {user_handle} with id {user_id}.")
+        logging.warning(f"Unauthorized access denied for user {user_handle} with id {user_id} and name {user_first_name} {user_last_name}.")
         await update.message.reply_text("You're not authorized to use this bot. Please contact the bot owner.")
         return CONVERSATION
 
     # Get the persisted context
-    if "conversation" in context.chat_data :
+    if ("conversation" in context.chat_data):
         conversation = context.chat_data["conversation"]
     else:
         # Create a new conversation
@@ -108,24 +127,41 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     # Create a new dialogue    
     dialog = Dialogue()
-    conversation.add_to_memory(dialog)
     dialog.set_question(user_id+": "+update.message.text)
-    reply = get_answer(conversation.get_complete_context(), tg_user=user_id)
+    conversation.add_to_memory(dialog) # do this before getting complete context or it might overflow!
+    try:
+        reply = get_answer(conversation.get_complete_context(), tg_user=user_id)
+    except openai.error.InvalidRequestError as e:
+        logger.error(f"Error: {e}")
+        await update.message.reply_text("Sorry, I'm having some issues. Please try again later.")
+        return CONVERSATION
     dialog.populate(reply)
     
     # Send the message back
-    await update.message.reply_text(dialog.get_answer().replace('Jarvis: ',''))
+    message = dialog.get_answer().replace('Jarvis: ','').replace(user_id+': ','').strip()
+    msgs = [message[i:i + 4096] for i in range(0, len(message), 4096)]
+    for text in msgs:
+        await update.message.reply_text(text=text)
 
     # Update persisted context
     context.chat_data["conversation"] = conversation
-    logger.info(f"{str(update.effective_user.id)} --> {dialog.get_question()} , {dialog.get_answer()}")
+    logger.debug(f"{str(update.effective_user.id)} --> {dialog.get_question()} , Jarvis: {dialog.get_answer()}")
     return CONVERSATION
 
+async def clear(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Clear the conversation."""
+    if update.effective_user.id != master_id:
+        await update.message.reply_text("You're not authorized to use this bot. Please contact the bot owner.")
+        return CONVERSATION
+    context.chat_data["conversation"] = Conversation(user_id=str(update.effective_user.id))
+    await update.message.reply_text("Conversation cleared.")
+    logger.info(f"Conversation cleared by {update.effective_user.id}")
+    return CONVERSATION
 
 def main() -> None:
     """Run the bot."""
     # Create the Application and pass it your bot's token.
-    path = os.getenv("PERSISTENCE_PATH","/volumes/persist/")
+    path = os.getenv("PERSISTENCE_PATH","./")
     persistence = PicklePersistence(filepath=path+"jarvis_brain.pkl")
     application = Application.builder().token(telegram_token).persistence(persistence).build()
 
@@ -139,7 +175,8 @@ def main() -> None:
         name="my_conversation",
         persistent=True,
     )
-
+#    command_handler = CommandHandler("clear", clear)
+#    application.add_handler(command_handler)
     application.add_handler(conv_handler)
 
     # Start the Bot
