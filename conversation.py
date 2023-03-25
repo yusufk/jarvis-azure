@@ -2,6 +2,7 @@
 import json
 import os
 import logging
+import openai
 
 # Enable logging
 logging.basicConfig(
@@ -46,6 +47,34 @@ class Conversation:
         self.memory_size = 50
         self.user_id = user_id
         self.populate_memory("training.jsonl")
+    
+        # Initialise OpenAI
+        openai.api_type = "azure"
+        openai.api_base = "https://jarvis-openai.openai.azure.com/"
+        openai.api_version = "2022-12-01"
+        openai.api_key = os.getenv("OPENAI_KEY")
+        self.openai_temp = os.getenv("TEMPERATURE")
+        self.openai_top_p = os.getenv("TOP_PROB")
+        self.openai_engine = os.getenv("ENGINE")
+        self.openai_max_tokens = os.getenv("MAX_TOKENS")
+
+    def get_answer(self, question, tg_user=None):
+        try:
+            response = openai.Completion.create(
+            engine=self.openai_engine,
+            prompt=question,
+            temperature=float(self.openai_temp),
+            max_tokens=int(self.openai_max_tokens),
+            top_p=float(self.openai_top_p),
+            frequency_penalty=0,
+            presence_penalty=0,
+            stop=None,
+            user=tg_user)
+        except openai.error.InvalidRequestError as e:
+            logger.error(f"Error: {e}")
+            self.purge_a_memory()
+            return self.get_answer(question, tg_user)
+        return response.choices[0].text
         
     def add_to_memory(self, dialogue):
         while (len(self.memory) >= self.memory_size):

@@ -15,7 +15,6 @@ bot.
 
 import logging
 import os
-import openai
 import telegram
 from typing import Dict
 from conversation import Conversation, Dialogue
@@ -75,30 +74,7 @@ white_list_str = os.getenv("WHITE_LIST").split(",")
 white_list = [int(x) for x in white_list_str]
 master_id = white_list[0]
 
-# Initialise OpenAI
-openai.api_type = "azure"
-openai.api_base = "https://jarvis-openai.openai.azure.com/"
-openai.api_version = "2022-12-01"
-openai.api_key = os.getenv("OPENAI_KEY")
-openai_temp = os.getenv("TEMPERATURE")
-openai_top_p = os.getenv("TOP_PROB")
-openai_engine = os.getenv("ENGINE")
-openai_max_tokens = os.getenv("MAX_TOKENS")
-
 CONVERSATION = range(1)
-
-def get_answer(question, tg_user=None):
-  response = openai.Completion.create(
-  engine=openai_engine,
-  prompt=question,
-  temperature=float(openai_temp),
-  max_tokens=int(openai_max_tokens),
-  top_p=float(openai_top_p),
-  frequency_penalty=0,
-  presence_penalty=0,
-  stop=None,
-  user=tg_user)
-  return response.choices[0].text
 
 async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Chat back based on the user message."""
@@ -129,13 +105,7 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     dialog = Dialogue()
     dialog.set_question(user_id+": "+update.message.text)
     conversation.add_to_memory(dialog) # do this before getting complete context or it might overflow!
-    try:
-        reply = get_answer(conversation.get_complete_context(), tg_user=user_id)
-    except openai.error.InvalidRequestError as e:
-        logger.error(f"Error: {e}")
-        await update.message.reply_text("Sorry, I'm having some issues. Please try again later.")
-        conversation.purge_a_memory()
-        return CONVERSATION
+    reply = conversation.get_answer(conversation.get_complete_context(), tg_user=user_id)
     dialog.populate(reply)
     
     # Send the message back
