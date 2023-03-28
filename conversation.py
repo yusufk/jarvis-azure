@@ -69,10 +69,15 @@ class Conversation:
             presence_penalty=0,
             stop=None,
             user=tg_user)
+        # If the request is invalid due to too many tokens, purge a memory and try again
         except openai.error.InvalidRequestError as e:
             logger.error(f"Error: {e}")
             self.purge_a_memory()
             return self.get_answer(question, tg_user)
+        # Return a generic response for any other error
+        except Exception as e:
+            logger.error(f"Error: {e}")
+            return "I'm sorry, I'm not feeling well. I'll be back soon."
         return response.choices[0].text
         
     def add_to_memory(self, dialogue):
