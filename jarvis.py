@@ -106,7 +106,7 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     dialog.set_question(user_id+": "+update.message.text)
     conversation.add_to_memory(dialog) # do this before getting complete context or it might overflow!
     reply = conversation.get_answer(tg_user=user_id)
-    dialog.populate(reply)
+    dialog.set_answer(reply)
     
     # Send the message back
     message = dialog.get_answer().replace('Jarvis: ','').replace(user_id+': ','').strip()

@@ -1,8 +1,10 @@
 # A class for the brain of the AI assistant keeping track of a conversation as a series of dialogues in a circular buffer.
+import datetime
 import json
 import os
 import logging
 import openai
+from dotenv import load_dotenv
 
 # Enable logging
 logging.basicConfig(
@@ -15,9 +17,11 @@ class Dialogue:
     def __init__(self):
         self.question = ""
         self.answer = ""
+        self.datetime = ""
 
     def set_question(self, question):
         self.question = question
+        self.datetime = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
     def set_answer(self, answer):
         self.answer = answer
@@ -28,17 +32,18 @@ class Dialogue:
     def get_answer(self):
         return self.answer
     
-    def populate(self, reply):
-        #self.answer = reply[reply.index("Jarvis: "):len(reply)].rstrip('\n')
-        self.answer = reply.rstrip('\n')
+    def get_datetime(self):
+        return self.datetime
 
 class Conversation:
     def __init__(self, user_id=None):
+        # Get environment variables from .env file
+        load_dotenv()
         # Create the Application and pass it your bot's token.
         self.path = os.getenv("PERSISTENCE_PATH","/volumes/persist/")
-        contextFIle = self.path+"context.txt"
-        if os.path.exists(contextFIle):
-            with open(contextFIle, "r") as f:
+        contextFile = self.path+"context.txt"
+        if os.path.exists(contextFile):
+            with open(contextFile, "r") as f:
                 self.context = f.read()
         else:
             self.context = "The following is a conversation with an AI assistant, Jarvis. Jarvis has a personality like the Marvel character he's named after. He is curious, helpful, creative, very witty and a bit sarcastic."
@@ -103,8 +108,8 @@ class Conversation:
                 # Parse the json line into a dialogue object
                 # e.g. {"prompt": "Human: Hello, pleased to meet you, my name is Yusuf", "completion": "Jarvis thinks: What a friendly person, looking forward to finding out more.\nJarvis: Hi Yusuf, it's a pleasure to meet you too."}
                 line = json.loads(line)
-                dialogue.question = line["prompt"].replace("Human: ",self.user_id+": ")
-                dialogue.populate(line["completion"])
+                dialogue.set_question(line["prompt"].replace("Human: ",self.user_id+": "))
+                dialogue.set_answer(line["completion"].rstrip('\n'))
                 self.add_to_memory(dialogue)
     
     def add_to_training_file(self, dialogue):
@@ -116,6 +121,7 @@ class Conversation:
         complete_context = self.context+"\n\n"
         # iterate through memory and add to context
         for dialogue in self.memory:
+            complete_context += dialogue.get_datetime()+"\n"
             complete_context += dialogue.get_question()+"\n"
             if dialogue.get_answer() != "":
                 complete_context += dialogue.get_answer()+"\n\n"
@@ -125,7 +131,7 @@ class Conversation:
         return complete_context
 
     def archive_extra_memories(self):
-        # Trim the context to the last 50 dialogues
+        # Trim the context to the within the token limit
         context_size = len(self.context)
         for dialogue in self.memory:
             context_size += len(dialogue.get_question())+1
