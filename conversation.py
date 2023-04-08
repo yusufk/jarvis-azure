@@ -73,7 +73,7 @@ class Conversation:
         except openai.error.InvalidRequestError as e:
             logger.error(f"Error: {e}")
             self.purge_a_memory()
-            return self.get_answer(question, tg_user)
+            return self.get_answer(tg_user)
         # Return a generic response for any other error
         except Exception as e:
             logger.error(f"Error: {e}")
