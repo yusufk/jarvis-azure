@@ -35,8 +35,8 @@ class Dialogue:
 class Conversation:
     def __init__(self, user_id=None):
         # Create the Application and pass it your bot's token.
-        path = os.getenv("PERSISTENCE_PATH","/volumes/persist/")
-        contextFIle = path+"context.txt"
+        self.path = os.getenv("PERSISTENCE_PATH","/volumes/persist/")
+        contextFIle = self.path+"context.txt"
         if os.path.exists(contextFIle):
             with open(contextFIle, "r") as f:
                 self.context = f.read()
@@ -52,7 +52,7 @@ class Conversation:
         self.openai_engine = os.getenv("ENGINE")
         self.openai_max_tokens = os.getenv("MAX_TOKENS")
 
-    def get_answer(self, question, tg_user=None):
+    def get_answer(self, tg_user=None):
         # Initialise OpenAI
         openai.api_type = "azure"
         openai.api_base = "https://jarvis-openai.openai.azure.com/"
@@ -61,7 +61,7 @@ class Conversation:
         try:
             response = openai.Completion.create(
             engine=self.openai_engine,
-            prompt=question,
+            prompt=self.get_complete_context(),
             temperature=float(self.openai_temp),
             max_tokens=int(self.openai_max_tokens),
             top_p=float(self.openai_top_p),
@@ -108,8 +108,7 @@ class Conversation:
                 self.add_to_memory(dialogue)
     
     def add_to_training_file(self, dialogue):
-        path = os.getenv("PERSISTENCE_PATH","/volumes/persist/")
-        with open(path+"training_"+self.user_id+".jsonl", "a+") as f:
+        with open(self.path+"training_"+self.user_id+".jsonl", "a+") as f:
             f.write(json.dumps({"prompt": dialogue.get_question(), "completion": dialogue.get_answer()})+"\n")
 
     def get_complete_context(self):
