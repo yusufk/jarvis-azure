@@ -40,18 +40,11 @@ class Conversation:
         # Get environment variables from .env file
         load_dotenv()
         # Create the Application and pass it your bot's token.
-        self.path = os.getenv("PERSISTENCE_PATH","/volumes/persist/")
-        contextFile = self.path+"context.txt"
-        if os.path.exists(contextFile):
-            with open(contextFile, "r") as f:
-                self.context = f.read()
-        else:
-            self.context = "The following is a conversation with an AI assistant, Jarvis. Jarvis has a personality like the Marvel character he's named after. He is curious, helpful, creative, very witty and a bit sarcastic."
+        self.context = "The following is a conversation with an AI assistant, Jarvis. Jarvis has a personality like the Marvel character he's named after. He is curious, helpful, creative, very witty and a bit sarcastic."
         self.memory = []
         self.token_limit = int(os.getenv("CONTEXT_TOKEN_LIMIT",(4097-1024))) # Token limit 4097 - 1024 for response
         self.memory_size = 50
         self.user_id = user_id
-        self.populate_memory("training.jsonl")
         self.openai_temp = os.getenv("TEMPERATURE")
         self.openai_top_p = os.getenv("TOP_PROB")
         self.openai_engine = os.getenv("ENGINE")
@@ -145,13 +138,29 @@ class Conversation:
             self.add_to_training_file(self.memory[0])
             dialog = self.memory.pop(0)
             context_size -= len(dialog.get_question())+1 + len(dialog.get_answer())+2
+    
+    def set_context(self, context):
+        self.context = context
+
+    def set_context_from_file(self, contextFile):
+        if os.path.exists(contextFile):
+            with open(contextFile, "r") as f:
+                self.context = f.read()
+
+    def pretrain_using_file(self,filename):
+        self.populate_memory(filename)
+
 
 # If main.py is run as a script, run the main function
 if __name__ == "__main__":
-    conversation = Conversation('1234')
+    conversation = Conversation('Me')
+    conversation.set_context("The following is the internal conversation of an AI assistant, Jarvis. Jarvis has a personality like the Marvel character he's named after. He is curious, helpful, creative, very witty and a bit sarcastic.")
+    conversation.pretrain_using_file("training with thoughts.jsonl")
     dialog = Dialogue()
-    dialog.set_question("1234: Hello, pleased to meet you, my name is Yusuf")
+    dialog.set_question("Me: How do clocks work?")
     conversation.add_to_memory(dialog)
+    dialog.set_answer(conversation.get_answer("Me"))
     print(conversation.get_complete_context())
+    print(dialog.get_answer().replace('Jarvis: ','').replace("Me"+': ','').strip())
     
     
