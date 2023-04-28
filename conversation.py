@@ -39,6 +39,10 @@ class Conversation:
     def __init__(self, user_id=None):
         # Get environment variables from .env file
         load_dotenv()
+        openai.api_type = os.getenv("OPENAI_API_TYPE")
+        openai.api_base = os.getenv("OPENAI_API_BASE")
+        openai.api_version = os.getenv("OPENAI_API_VERSION")
+        openai.api_key = os.getenv("OPENAI_API_KEY")
         # Create the Application and pass it your bot's token.
         self.context = "The following is a conversation with an AI assistant, Jarvis. Jarvis has a personality like the Marvel character he's named after. He is curious, helpful, creative, very witty and a bit sarcastic."
         self.memory = []
@@ -51,11 +55,6 @@ class Conversation:
         self.openai_max_tokens = os.getenv("MAX_TOKENS")
 
     def get_answer(self, tg_user=None):
-        # Initialise OpenAI
-        openai.api_type = "azure"
-        openai.api_base = "https://jarvis-openai.openai.azure.com/"
-        openai.api_version = "2022-12-01"
-        openai.api_key = os.getenv("OPENAI_KEY")
         try:
             response = openai.Completion.create(
             engine=self.openai_engine,
