@@ -9,6 +9,7 @@ python = "^3.10"
 openai = "^0.26.1"
 python-telegram-bot = {extras = ["webhooks"], version = "^20.0"}
 python-dotenv = "^0.21.1"
+langchain = "^0.0.152"
 
 [tool.poetry.dev-dependencies]
 
