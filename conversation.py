@@ -38,7 +38,7 @@ class Conversation:
         # Create a new conversation
         self.context = "Jarvis has a personality like the Marvel character he's named after. He is curious, helpful, creative, very witty and a bit sarcastic. If the AI does not know the answer to a question, it truthfully says it does not know."
         self.examples = self.get_from_file("training.jsonl")
-        template = "The following is a conversation with an AI assistant, Jarvis.\n{context}\n{examples}\n{chat_history}\n"+self.user_id+": {human_input}\nJarvis: "
+        template = "The following is a conversation with an AI assistant, Jarvis.\n{context}\n{examples}\n{chat_history}"+self.user_id+": {human_input}\nJarvis: "
         prompt = PromptTemplate(template=template, input_variables=["context", "examples", "chat_history", "human_input"])
 
         # Create an instance of Azure OpenAI
@@ -46,7 +46,7 @@ class Conversation:
         self.conversation = LLMChain(
         llm=self.llm,
         prompt=prompt,
-        memory=ConversationBufferMemory(memory_key="chat_history", input_key="human_input")
+        memory=ConversationBufferMemory(memory_key="chat_history", input_key="human_input", ai_prefix="Jarvis", human_prefix=self.user_id),
         )
 
     def get_answer(self, prompt=None):
@@ -65,8 +65,9 @@ class Conversation:
 def main():
     # Test the Conversation class
     conv = Conversation("Yusuf")
+    print(conv.get_answer(prompt="What is your motivation?"))
     print(conv.get_answer(prompt="List my previous questions?"))
-    
+    print(conv.get_answer(prompt="Who are you?"))
 # If main.py is run as a script, run the main function
 if __name__ == "__main__":
     main()    
