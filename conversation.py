@@ -6,10 +6,14 @@ import logging
 import openai
 from dotenv import load_dotenv
 # Import Azure OpenAI
+from langchain.prompts.prompt import PromptTemplate
 from langchain.llms import AzureOpenAI
-from langchain import OpenAI, ConversationChain, LLMChain, PromptTemplate
-from langchain.memory import ConversationBufferMemory
-
+from langchain import LLMChain
+from langchain.chains import LLMChain, ConversationChain
+from langchain.chains.conversation.memory import (ConversationBufferMemory, 
+                                                  ConversationSummaryMemory, 
+                                                  ConversationBufferWindowMemory,
+                                                  ConversationKGMemory)
 
 # Enable logging
 logging.basicConfig(
@@ -32,31 +36,24 @@ class Conversation:
         self.openai_top_p = os.getenv("TOP_PROB") 
 
         # Create a new conversation
-        self.context = "Jarvis has a personality like the Marvel character he's named after. He is curious, helpful, creative, very witty and a bit sarcastic."
-        self.template = """The following is a conversation with an AI assistant, Jarvis.\n{context}\n\n{history}\n{human_id}: {human_input}\nJarvis: """
-        self.prompt = PromptTemplate(
-            input_variables=["human_input"], 
-            template=self.template,
-            partial_variables={"context":self.context, "human_id":self.user_id, "history":self.get_history('./training.jsonl')}
-        )
+        self.context = "Jarvis has a personality like the Marvel character he's named after. He is curious, helpful, creative, very witty and a bit sarcastic. If the AI does not know the answer to a question, it truthfully says it does not know."
+        self.examples = self.get_from_file("training.jsonl")
+        template = "The following is a conversation with an AI assistant, Jarvis.\n{context}\n{examples}\n{chat_history}\n"+self.user_id+": {human_input}\nJarvis: "
+        prompt = PromptTemplate(template=template, input_variables=["context", "examples", "chat_history", "human_input"])
+
         # Create an instance of Azure OpenAI
-        self.llm = AzureOpenAI(deployment_name=os.getenv("ENGINE") , model_name="text-davinci-003", temperature=self.openai_temp, top_p=self.openai_top_p)
-        self.conversation_chain = LLMChain(
-            llm=self.llm,
-            prompt=self.prompt,
-            memory=ConversationBufferMemory(
-                max_history=50,
-                prompt_template=self.prompt,
-                input_variables=["human_input"],
-                output_variables=["jarvis_output"],
-            ),
+        self.llm = AzureOpenAI(deployment_name=os.getenv("ENGINE") , temperature=self.openai_temp, top_p=self.openai_top_p)
+        self.conversation = LLMChain(
+        llm=self.llm,
+        prompt=prompt,
+        memory=ConversationBufferMemory(memory_key="chat_history", input_key="human_input")
         )
+
+    def get_answer(self, prompt=None):
+        # Get the answer from the model chain
+        return self.conversation.predict(context=self.context, examples=self.examples, human_input=prompt)
     
-    def get_answer(self, input=None):
-        # Get the answer from the LLM chain
-        return self.conversation_chain.predict(human_input=input)
-    
-    def get_history(self, memory_file):
+    def get_from_file(self, memory_file):
         history = ""
         with open(memory_file, "r") as f:
             for line in f:
@@ -68,7 +65,7 @@ class Conversation:
 def main():
     # Test the Conversation class
     conv = Conversation("Yusuf")
-    print(conv.get_answer(input="Hello, how are you?"))
+    print(conv.get_answer(prompt="List my previous questions?"))
     
 # If main.py is run as a script, run the main function
 if __name__ == "__main__":
