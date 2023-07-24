@@ -11,7 +11,10 @@ from langchain.llms import AzureOpenAI
 from langchain.chains import ConversationChain
 from langchain.memory import (ConversationKGMemory, ConversationBufferMemory,
     CombinedMemory,
-    ConversationSummaryMemory)
+    ConversationSummaryMemory, VectorStoreRetrieverMemory)
+from langchain.embeddings.openai import OpenAIEmbeddings
+from langchain.vectorstores import Pinecone
+import pinecone
 
 # Enable logging
 logging.basicConfig(
@@ -32,6 +35,18 @@ class Conversation:
         self.token_limit = int(os.getenv("CONTEXT_TOKEN_LIMIT",(4097-1024)))
         self.openai_temp = os.getenv("TEMPERATURE")
         self.openai_top_p = os.getenv("TOP_PROB") 
+        embeddings = OpenAIEmbeddings(deployment=os.getenv("EMBEDDING_ENGINE"))
+
+        # initialize pinecone
+        pinecone.init(
+            api_key=os.getenv("PINECONE_API_KEY"),  # find at app.pinecone.io
+            environment=os.getenv("PINECONE_ENV")  # next to api key in console
+        )
+
+        index_name = "jarvis"
+        vectorstore = Pinecone(index=pinecone.Index(index_name), embedding_function=embeddings.embed_query, text_key="text")
+
+        retriever = vectorstore.as_retriever()
 
         # Create an instance of Azure OpenAI
         llm = AzureOpenAI(deployment_name=os.getenv("ENGINE") , temperature=self.openai_temp, top_p=self.openai_top_p)
@@ -54,10 +69,12 @@ class Conversation:
 
         summary_memory = ConversationSummaryMemory(llm=llm, input_key="input", memory_key="summary")
 
-        kgmemory = ConversationKGMemory(llm=llm, input_key="input", memory_key="relevant")
+        #kgmemory = ConversationKGMemory(llm=llm, input_key="input", memory_key="relevant")
+
+        persisted_memory = VectorStoreRetrieverMemory(retriever=retriever, input_key="input", memory_key="relevant")
 
         # Combined
-        memory = CombinedMemory(memories=[conv_memory, summary_memory, kgmemory])
+        memory = CombinedMemory(memories=[conv_memory, summary_memory, persisted_memory])
 
         self.conversation = ConversationChain(
             llm=llm, verbose=True, prompt=prompt, memory=memory
