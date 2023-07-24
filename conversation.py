@@ -44,7 +44,7 @@ class Conversation:
         )
 
         index_name = "jarvis"
-        vectorstore = Pinecone(index=pinecone.Index(index_name), embedding_function=embeddings.embed_query, text_key="text")
+        vectorstore = Pinecone(index=pinecone.Index(index_name), embedding_function=embeddings.embed_query, text_key="text",namespace=user_id)
 
         retriever = vectorstore.as_retriever()
 
@@ -96,6 +96,7 @@ class Conversation:
 def main():
     # Test the Conversation class
     conv = Conversation("Yusuf")
+    print(conv.get_answer(prompt="What is my name?"))
     print(conv.get_answer(prompt="What is your motivation?"))
     print(conv.get_answer(prompt="List my previous questions?"))
     print(conv.get_answer(prompt="Who are you?"))
