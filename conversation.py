@@ -8,12 +8,10 @@ from dotenv import load_dotenv
 # Import Azure OpenAI
 from langchain.prompts.prompt import PromptTemplate
 from langchain.llms import AzureOpenAI
-from langchain import LLMChain
-from langchain.chains import LLMChain, ConversationChain
-from langchain.chains.conversation.memory import (ConversationBufferMemory, 
-                                                  ConversationSummaryMemory, 
-                                                  ConversationBufferWindowMemory,
-                                                  ConversationKGMemory)
+from langchain.chains import ConversationChain
+from langchain.memory import (ConversationKGMemory, ConversationBufferMemory,
+    CombinedMemory,
+    ConversationSummaryMemory)
 
 # Enable logging
 logging.basicConfig(
@@ -35,23 +33,39 @@ class Conversation:
         self.openai_temp = os.getenv("TEMPERATURE")
         self.openai_top_p = os.getenv("TOP_PROB") 
 
-        # Create a new conversation
-        self.context = "Jarvis has a personality like the Marvel character he's named after. He is curious, helpful, creative, very witty and a bit sarcastic. If the AI does not know the answer to a question, it truthfully says it does not know."
-        self.examples = self.get_from_file("training.jsonl")
-        template = "The following is a conversation with an AI assistant, Jarvis.\n{context}\n{examples}\n{chat_history}"+self.user_id+": {human_input}\nJarvis: "
-        prompt = PromptTemplate(template=template, input_variables=["context", "examples", "chat_history", "human_input"])
-
         # Create an instance of Azure OpenAI
-        self.llm = AzureOpenAI(deployment_name=os.getenv("ENGINE") , temperature=self.openai_temp, top_p=self.openai_top_p)
-        self.conversation = LLMChain(
-        llm=self.llm,
-        prompt=prompt,
-        memory=ConversationBufferMemory(memory_key="chat_history", input_key="human_input", ai_prefix="Jarvis", human_prefix=self.user_id),
+        llm = AzureOpenAI(deployment_name=os.getenv("ENGINE") , temperature=self.openai_temp, top_p=self.openai_top_p)
+
+        template = """The following is a friendly conversation between a human and an AI called Jarvis. Jarvis has a personality like the Marvel character he's named after. He is curious, helpful, creative, very witty and a bit sarcastic.
+        If he does not know the answer to a question, he truthfully says he does not know. Jarvis ONLY uses memories about previous conversations contained in the "Memories" section and does not hallucinate.
+        Conversation summary:
+        {summary}        
+
+        Relevant memories:
+        {relevant}
+
+        Current conversation:
+        {history}
+        """+self.user_id+""": {input}
+        Jarvis:"""
+        prompt = PromptTemplate(input_variables=["history", "relevant", "summary", "input"], template=template)
+       
+        conv_memory = ConversationBufferMemory(memory_key="history", input_key="input")
+
+        summary_memory = ConversationSummaryMemory(llm=llm, input_key="input", memory_key="summary")
+
+        kgmemory = ConversationKGMemory(llm=llm, input_key="input", memory_key="relevant")
+
+        # Combined
+        memory = CombinedMemory(memories=[conv_memory, summary_memory, kgmemory])
+
+        self.conversation = ConversationChain(
+            llm=llm, verbose=True, prompt=prompt, memory=memory
         )
 
     def get_answer(self, prompt=None):
         # Get the answer from the model chain
-        return self.conversation.predict(context=self.context, examples=self.examples, human_input=prompt)
+        return self.conversation.predict(input=prompt)
     
     def get_from_file(self, memory_file):
         history = ""

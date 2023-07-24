@@ -11,6 +11,8 @@ python-telegram-bot = {extras = ["webhooks"], version = "^20.0"}
 python-dotenv = "^0.21.1"
 langchain = "^0.0.152"
 tiktoken = "^0.3.3"
+pinecone-client = {extras = ["grpc"], version = "^2.2.2"}
+networkx = "^3.1"
 
 [tool.poetry.dev-dependencies]
 
