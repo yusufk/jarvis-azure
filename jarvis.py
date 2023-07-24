@@ -101,7 +101,7 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         logger.info(f"New user detected: {user_handle} with id {user_id}")
         conversation = Conversation(user_id=user_id)
 
-    reply = conversation.get_answer(update.message.text)
+    reply = conversation.get_answer(prompt=update.message.text)
 
     # Send the message back
     msgs = [reply[i:i + 4096] for i in range(0, len(reply), 4096)]
