@@ -41,6 +41,7 @@ from telegram.ext import (
     MessageHandler,
     PicklePersistence,
     filters,
+    ApplicationBuilder
 )
 
 # Enable logging
@@ -126,9 +127,8 @@ async def clear(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 def main() -> None:
     """Run the bot."""
     # Create the Application and pass it your bot's token.
-    path = os.getenv("PERSISTENCE_PATH","./")
-    persistence = PicklePersistence(filepath=path+"jarvis_brain.pkl")
-    application = Application.builder().token(telegram_token).persistence(persistence).build()
+    application = ApplicationBuilder().token(telegram_token).build()
+    #application = Application().token(telegram_token).build()
 
     # Add conversation handler with the states INTRO and CONVERSATION
     conv_handler = ConversationHandler(
@@ -138,7 +138,6 @@ def main() -> None:
         },
         fallbacks=[MessageHandler(filters.TEXT & ~filters.COMMAND, chat)],
         name="my_conversation",
-        persistent=True,
     )
 #    command_handler = CommandHandler("clear", clear)
 #    application.add_handler(command_handler)
