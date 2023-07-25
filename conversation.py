@@ -51,8 +51,14 @@ class Conversation:
         # Create an instance of Azure OpenAI
         llm = AzureOpenAI(deployment_name=os.getenv("ENGINE") , temperature=self.openai_temp, top_p=self.openai_top_p)
 
-        template = """The following is a friendly conversation between a human with user id="""+self.user_id+""" and an AI called Jarvis. Jarvis has a personality like the Marvel character he's named after. He is curious, helpful, creative, very witty and a bit sarcastic.
-        If he does not know the answer to a question, he truthfully says he does not know. Jarvis does not share information between users with different user id's.
+        # Create a prompt template
+        path = os.getenv("PERSISTENCE_PATH","/volumes/persist/")
+        contextFile=(path+"context.txt")
+        if os.path.exists(contextFile):
+            with open(contextFile, "r") as f:
+                self.context = f.read()
+        template = """The following is a friendly conversation between a human with user id="""+self.user_id+""" and an AI called Jarvis. 
+        """+self.context+"""
         Conversation summary:
         {summary}        
 
