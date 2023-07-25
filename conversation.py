@@ -59,6 +59,7 @@ class Conversation:
                 self.context = f.read()
         template = """The following is a friendly conversation between a human with user id="""+self.user_id+""" and an AI called Jarvis. 
         """+self.context+"""
+        Date: """+datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")+"""
         Conversation summary:
         {summary}        
 
