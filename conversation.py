@@ -57,7 +57,7 @@ class Conversation:
         if os.path.exists(contextFile):
             with open(contextFile, "r") as f:
                 self.context = f.read()
-        template = """The following is a friendly conversation between a human with user id="""+self.user_id+""" and an AI called Jarvis. 
+        template = """The following is a conversation between a person with user id="""+self.user_id+""" and an assistant called Jarvis. 
         """+self.context+"""
         Date: """+datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")+"""
         Conversation summary:
