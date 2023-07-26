@@ -57,31 +57,28 @@ class Conversation:
         if os.path.exists(contextFile):
             with open(contextFile, "r") as f:
                 self.context = f.read()
-        template = """The following is a conversation between a person with user id="""+self.user_id+""" and an assistant called Jarvis. 
-        """+self.context+"""
-        Date: """+datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")+"""
-        Conversation summary:
-        {summary}        
+        template = """The following is a conversation between a person with user id="""+self.user_id+""" and their enhancement engine, Jarvis. 
+        """+self.context+"""     
 
-        Relevant memories:
-        {relevant}
+        Old related conversations:
+        {memories}
 
         Current conversation:
         {history}
         """+self.user_id+""": {input}
         Jarvis:"""
-        prompt = PromptTemplate(input_variables=["history", "relevant", "summary", "input"], template=template)
+        prompt = PromptTemplate(input_variables=["history", "memories", "input"], template=template)
        
         conv_memory = ConversationBufferMemory(memory_key="history", input_key="input")
 
-        summary_memory = ConversationSummaryMemory(llm=llm, input_key="input", memory_key="summary")
+        #summary_memory = ConversationSummaryMemory(llm=llm, input_key="input", memory_key="summary")
 
         #kgmemory = ConversationKGMemory(llm=llm, input_key="input", memory_key="relevant")
 
-        persisted_memory = VectorStoreRetrieverMemory(retriever=retriever, input_key="input", memory_key="relevant")
+        persisted_memory = VectorStoreRetrieverMemory(retriever=retriever, input_key="input", memory_key="memories")
 
         # Combined
-        memory = CombinedMemory(memories=[conv_memory, summary_memory, persisted_memory])
+        memory = CombinedMemory(memories=[conv_memory, persisted_memory])
 
         self.conversation = ConversationChain(
             llm=llm, verbose=True, prompt=prompt, memory=memory

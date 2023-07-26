@@ -96,6 +96,7 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     # Get the persisted context
     if ("conversation" in context.chat_data):
+        logger.debug(f"Existing user detected: {user_handle} with id {user_id}")    
         conversation = context.chat_data["conversation"]
     else:
         # Create a new conversation
