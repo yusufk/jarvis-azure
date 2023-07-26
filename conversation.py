@@ -55,7 +55,7 @@ class Conversation:
         openai.api_type = "azure"
         openai.api_base = "https://jarvis-openai.openai.azure.com/"
         openai.api_version = "2022-12-01"
-        openai.api_key = os.getenv("OPENAI_KEY")
+        openai.api_key = os.getenv("OPENAI_API_KEY")
         try:
             response = openai.Completion.create(
             engine=self.openai_engine,
