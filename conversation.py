@@ -39,6 +39,7 @@ class Conversation:
     def __init__(self, user_id=None):
         # Get environment variables from .env file
         load_dotenv()
+        self.path = os.getenv("PERSISTENCE_PATH","/volumes/persist/")
         # Create the Application and pass it your bot's token.
         self.context = "The following is a conversation with an AI assistant, Jarvis. Jarvis has a personality like the Marvel character he's named after. He is curious, helpful, creative, very witty and a bit sarcastic."
         self.memory = []
