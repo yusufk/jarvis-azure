@@ -17,7 +17,7 @@ import logging
 import os
 import telegram
 from typing import Dict
-from conversation import Conversation, Dialogue
+from conversation import Conversation
 
 from telegram import __version__ as TG_VER
 
@@ -100,27 +100,15 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         # Create a new conversation
         logger.info(f"New user detected: {user_handle} with id {user_id}")
         conversation = Conversation(user_id=user_id)
-        path = os.getenv("PERSISTENCE_PATH","/volumes/persist/")
-        conversation.set_context_from_file(path+"context.jsonl")
-        #TODO Move to persistence later
-        conversation.pretrain_using_file("training.jsonl")
-
-    # Create a new dialogue    
-    dialog = Dialogue()
-    dialog.set_question(user_id+": "+update.message.text)
-    conversation.add_to_memory(dialog) # do this before getting complete context or it might overflow!
-    reply = conversation.get_answer(tg_user=user_id)
-    dialog.set_answer(reply)
     
     # Send the message back
-    message = dialog.get_answer().replace('Jarvis: ','').replace(user_id+': ','').strip()
+    message = await conversation.get_answer( update.message.text )
     msgs = [message[i:i + 4096] for i in range(0, len(message), 4096)]
     for text in msgs:
         await update.message.reply_text(text=text)
 
     # Update persisted context
     context.chat_data["conversation"] = conversation
-    logger.debug(f"{str(update.effective_user.id)} --> {dialog.get_question()} , Jarvis: {dialog.get_answer()}")
     return CONVERSATION
 
 async def clear(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
