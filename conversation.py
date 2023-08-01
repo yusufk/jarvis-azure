@@ -31,12 +31,13 @@ class Conversation:
         # Prepare OpenAI service using credentials stored in the `.env` file
         azure_openapi_key, azure_openapi_endpoint, azure_openapi_deployment_name, azure_openapi_version = os.getenv("OPENAI_API_KEY"), os.getenv("OPENAI_API_BASE"), os.getenv("ENGINE"), os.getenv("OPENAI_API_VERSION")
         self.kernel.add_text_completion_service("dv", AzureTextCompletion(api_key=azure_openapi_key, endpoint=azure_openapi_endpoint, deployment_name=azure_openapi_deployment_name, api_version=azure_openapi_version,logger=logger))
-        self.context = sk.ContextVariables()
-        self.context["chat_history"] = ""
+        self.context_vars = sk.ContextVariables()
+        self.context_vars["chat_history"] = ""
 
         # Create the Application and pass it your bot's token.
         sk_prompt = """The following is a friendly conversation between a human and an AI called Jarvis. Jarvis has a personality like the Marvel character he's named after. He is curious, helpful, creative, very witty and a bit sarcastic.
         If he does not know the answer to a question, he truthfully says he does not know. Jarvis ONLY uses memories about previous conversations contained in the "Memories" section and does not hallucinate.
+        
         {{$chat_history}}
 
         """+self.user_id+""": {{$user_input}}
@@ -60,14 +61,14 @@ class Conversation:
             with open(memory_file, "r") as f:
                 for line in f:
                     line = json.loads(line)
-                    self.context["chat_history"]+=(line["prompt"])+("\n")
-                    self.context["chat_history"]+=(line["completion"])+("\n")
+                    self.context_vars["chat_history"]+=(line["prompt"])+("\n")
+                    self.context_vars["chat_history"]+=(line["completion"])+("\n")
 
     async def get_answer(self, prompt=None):
-        self.context["user_input"] = prompt
-        answer = await self.kernel.run_async(self.chat_function, input_vars=self.context)
-        self.context["chat_history"] += self.user_id+": {user_input}\nJarvis: {answer}\n\n"
-        return answer
+        self.context_vars["user_input"] = prompt
+        answer = await self.kernel.run_async(self.chat_function, input_vars=self.context_vars)
+        self.context_vars["chat_history"] += self.user_id+f": {prompt}\nJarvis: {answer}\n\n"
+        return answer.result
 
 async def main():
     # Test the Conversation class
