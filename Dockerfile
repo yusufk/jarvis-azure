@@ -1,7 +1,7 @@
 FROM python:3-slim as python
 ENV PYTHONUNBUFFERED=true
 WORKDIR /app
-RUN pip install poetry==1.4.2
+RUN pip install poetry==1.3.0
 
 
 
@@ -11,8 +11,7 @@ ENV POETRY_NO_INTERACTION=1 \
     POETRY_VIRTUALENVS_CREATE=1 \
     POETRY_CACHE_DIR=/tmp/poetry_cache
 COPY . ./
-RUN poetry install --no-interaction --no-ansi -vvv || poetry install --no-interaction --no-ansi -vvv || poetry install --no-interaction --no-ansi -vvv
-
+RUN poetry install --no-interaction --no-ansi -vvv
 
 
 FROM python as runtime
