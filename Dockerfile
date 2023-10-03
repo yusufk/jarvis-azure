@@ -5,10 +5,7 @@ RUN pip install poetry==1.3.0
 
 FROM python as poetry
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends gcc and-build-dependencies \
-    && rm -rf /var/lib/apt/lists/* \
-    && pip install cryptography \
-    && apt-get purge -y --auto-remove gcc and-build-dependencies
+    && apt-get install -y gcc build-essentials
 ENV POETRY_NO_INTERACTION=1 \
     POETRY_VIRTUALENVS_IN_PROJECT=1 \
     POETRY_VIRTUALENVS_CREATE=1 \
