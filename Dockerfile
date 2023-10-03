@@ -1,17 +1,17 @@
-FROM python:3-slim as python
+FROM python:3.11-slim as python
 ENV PYTHONUNBUFFERED=true
 WORKDIR /app
-RUN pip install poetry==1.3.0
+
 
 FROM python as poetry
-RUN apt-get update \
-    && apt-get install -y gcc build-essentials
-ENV POETRY_NO_INTERACTION=1 \
-    POETRY_VIRTUALENVS_IN_PROJECT=1 \
-    POETRY_VIRTUALENVS_CREATE=1 \
-    POETRY_CACHE_DIR=/tmp/poetry_cache
+ENV POETRY_HOME=/opt/poetry
+ENV POETRY_VIRTUALENVS_IN_PROJECT=true
+ENV PATH="$POETRY_HOME/bin:$PATH"
+RUN python -c 'from urllib.request import urlopen; print(urlopen("https://install.python-poetry.org").read().decode())' | POETRY_VERSION=1.5.1 python -
 COPY . ./
 RUN poetry install --no-interaction --no-ansi -vvv
+
+
 
 FROM python as runtime
 ENV PATH="/app/.venv/bin:$PATH"
