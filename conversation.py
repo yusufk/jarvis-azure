@@ -158,7 +158,7 @@ if __name__ == "__main__":
     conversation.set_context("The following is the internal conversation of an AI assistant, Jarvis. Jarvis has a personality like the Marvel character he's named after. He is curious, helpful, creative, very witty and a bit sarcastic.")
     conversation.pretrain_using_file("training.jsonl")
     dialog = Dialogue()
-    dialog.set_question("Me: How do clocks work?")
+    dialog.set_question("Me: How do body clocks work?")
     conversation.add_to_memory(dialog)
     dialog.set_answer(conversation.get_answer("Me"))
     print(conversation.get_complete_context())
