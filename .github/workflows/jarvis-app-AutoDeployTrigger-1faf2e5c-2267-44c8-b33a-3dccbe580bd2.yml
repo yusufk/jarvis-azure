@@ -30,12 +30,12 @@ jobs:
         uses: azure/container-apps-deploy-action@v2
         with:
           appSourcePath: ${{ github.workspace }} 
-          registryUrl: hub.docker.com
+          registryUrl: docker.io
           registryUsername: ${{ secrets.JARVISAPP_REGISTRY_USERNAME }}
           registryPassword: ${{ secrets.JARVISAPP_REGISTRY_PASSWORD }}
           containerAppName: jarvis-app
           resourceGroup: jarvis-rg
-          imageToBuild: hub.docker.com/jarvis-app:${{ github.sha }}
+          imageToBuild: yusufk/jarvis-app:${{ github.sha }}
           dockerfilePath: Dockerfile
 
      
