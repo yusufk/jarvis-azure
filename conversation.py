@@ -5,6 +5,7 @@ import os
 import logging
 import openai
 from dotenv import load_dotenv
+from collections import deque
 
 # Enable logging
 logging.basicConfig(
@@ -40,8 +41,6 @@ class Conversation:
         # Get environment variables from .env file
         load_dotenv()
         self.path = os.getenv("PERSISTENCE_PATH","/volumes/persist/")
-        # Create the Application and pass it your bot's token.
-        self.context = "The following is a conversation with an AI assistant, Jarvis. Jarvis has a personality like the Marvel character he's named after. He is curious, helpful, creative, very witty and a bit sarcastic."
         self.memory = []
         self.token_limit = int(os.getenv("CONTEXT_TOKEN_LIMIT",(4097-1024))) # Token limit 4097 - 1024 for response
         self.memory_size = 50
@@ -50,12 +49,24 @@ class Conversation:
         self.openai_top_p = os.getenv("TOP_PROB")
         self.openai_engine = os.getenv("ENGINE")
         self.openai_max_tokens = os.getenv("MAX_TOKENS")
+        # Initialise the context from the context.txt file if it exists
+        if os.path.exists(self.path+"context.txt"):
+            with open(self.path+"context.txt", "r") as f:
+                self.context = f.read()
+        else:
+            self.context = "The following is a conversation with an AI assistant, Jarvis. Jarvis has a personality like the Marvel character he's named after. He is curious, helpful, creative, very witty and a bit sarcastic."
+        # Implement some few shot training from the training.jsonl file
+        if os.path.exists(self.path+"training.jsonl"):
+            self.pretrain_using_file(self.path+"training.jsonl")
+        # Initialise the memory from self.path+"training_"+self.user_id+".jsonl"
+        if os.path.exists(self.path+"training_"+self.user_id+".jsonl"):
+            self.populate_memory(self.path+"training_"+self.user_id+".jsonl")
 
     def get_answer(self, tg_user=None):
         # Initialise OpenAI
-        openai.api_type = "azure"
-        openai.api_base = "https://jarvis-openai.openai.azure.com/"
-        openai.api_version = "2022-12-01"
+        openai.api_type = os.getenv("OPENAI_API_TYPE","azure")
+        openai.api_base = os.getenv("OPENAI_API_BASE")
+        openai.api_version = os.getenv("OPENAI_API_VERSION","2022-12-01")
         openai.api_key = os.getenv("OPENAI_API_KEY")
         try:
             response = openai.Completion.create(
@@ -97,14 +108,19 @@ class Conversation:
 
     def populate_memory(self, memory_file):
         with open(memory_file, "r") as f:
+            # Use a deque to keep track of the last 50 lines of the file
+            last_lines = deque(maxlen = self.memory_size)
             for line in f:
+                # Add the line to the deque
+                last_lines.append(line)
+            for line in last_lines:
                 dialogue = Dialogue()
                 # Parse the json line into a dialogue object
                 # e.g. {"prompt": "Human: Hello, pleased to meet you, my name is Yusuf", "completion": "Jarvis thinks: What a friendly person, looking forward to finding out more.\nJarvis: Hi Yusuf, it's a pleasure to meet you too."}
                 line = json.loads(line)
                 dialogue.set_question(line["prompt"].replace("Human: ",self.user_id+": "))
                 dialogue.set_answer(line["completion"].rstrip('\n'))
-                self.add_to_memory(dialogue)
+                self.memory.append(dialogue)
     
     def add_to_training_file(self, dialogue):
         with open(self.path+"training_"+self.user_id+".jsonl", "a+") as f:

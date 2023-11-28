@@ -100,10 +100,6 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         # Create a new conversation
         logger.info(f"New user detected: {user_handle} with id {user_id}")
         conversation = Conversation(user_id=user_id)
-        path = os.getenv("PERSISTENCE_PATH","/volumes/persist/")
-        conversation.set_context_from_file(path+"context.jsonl")
-        #TODO Move to persistence later
-        conversation.pretrain_using_file("training.jsonl")
 
     # Create a new dialogue    
     dialog = Dialogue()
