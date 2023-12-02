@@ -8,7 +8,7 @@ on:
       [ main ]
     paths:
     - '**'
-    - '.github/workflows/jarvis-app-AutoDeployTrigger-1faf2e5c-2267-44c8-b33a-3dccbe580bd2.yml'
+    - '.github/workflows/jarvis-app-AutoDeployTrigger-fc8e001f-70c6-46be-b936-a4a81f42c6ca.yml'
 
   # Allow manual trigger 
   workflow_dispatch:
@@ -30,12 +30,12 @@ jobs:
         uses: azure/container-apps-deploy-action@v2
         with:
           appSourcePath: ${{ github.workspace }} 
-          registryUrl: docker.io
+          registryUrl: yusufk.azurecr.io
           registryUsername: ${{ secrets.JARVISAPP_REGISTRY_USERNAME }}
           registryPassword: ${{ secrets.JARVISAPP_REGISTRY_PASSWORD }}
           containerAppName: jarvis-app
           resourceGroup: jarvis-rg
-          imageToBuild: yusufk/jarvis-app:${{ github.sha }}
+          imageToBuild: yusufk.azurecr.io/jarvis-app:${{ github.sha }}
           dockerfilePath: Dockerfile
 
      
