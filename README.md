@@ -12,3 +12,4 @@ Usage
 To run the bot, you need to create a Telegram bot using the [BotFather](https://t.me/botfather).
 Then, you need to create a file called `.env` in the root of the project directory.  
 
+reloaded
