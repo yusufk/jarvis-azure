@@ -1,12 +1,12 @@
 [tool.poetry]
 name = "jarvis-azure"
-version = "0.1.0"
+version = "0.1.1"
 description = "Jarvis AI bot, powered by Azure OpenAI"
 authors = ["Yusuf Kaka <yusufk@gmail.com>"]
 
 [tool.poetry.dependencies]
 python = "^3.10"
-openai = "^0.26.1"
+openai = "^1.37.1"
 python-telegram-bot = {extras = ["webhooks"], version = "^20.0"}
 python-dotenv = "^0.21.1"
 

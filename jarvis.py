@@ -17,7 +17,9 @@ import logging
 import os
 import telegram
 from typing import Dict
-from conversation import Conversation, Dialogue
+from openai import AzureOpenAI
+from dotenv import load_dotenv
+import time
 
 from telegram import __version__ as TG_VER
 
@@ -76,6 +78,30 @@ master_id = white_list[0]
 
 CONVERSATION = range(1)
 
+# Setup Azure Open AI
+client = AzureOpenAI(
+    api_key=os.getenv("OPENAI_API_KEY"),  
+    api_version=os.getenv("OPENAI_API_VERSION"),
+    azure_endpoint = os.getenv("OPENAI_API_BASE")
+    )
+
+# Initialise the context from the context.txt file if it exists
+path = os.getenv("PERSISTENCE_PATH","/volumes/persist/")
+if os.path.exists(path+"context.txt"):
+    with open(path+"context.txt", "r") as f:
+        context = f.read()
+else:
+    context = "You have a personality like the Marvel character Jarvis. You are curious, helpful, creative, very witty and a bit sarcastic."
+
+# Create an assistant
+assistant = client.beta.assistants.create(
+    name="Jarvis",
+    instructions=context,
+    tools=[{"type": "code_interpreter"}],
+    model=os.getenv("ENGINE")
+)
+
+
 async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Chat back based on the user message."""
     user_id = str(update.effective_user.id)
@@ -99,24 +125,40 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     else:
         # Create a new conversation
         logger.info(f"New user detected: {user_handle} with id {user_id}")
-        conversation = Conversation(user_id=user_id)
+        conversation = client.beta.threads.create()
 
-    # Create a new dialogue    
-    dialog = Dialogue()
-    dialog.set_question(user_id+": "+update.message.text)
-    conversation.add_to_memory(dialog) # do this before getting complete context or it might overflow!
-    reply = conversation.get_answer(tg_user=user_id)
-    dialog.set_answer(reply)
-    
-    # Send the message back
-    message = dialog.get_answer().replace('Jarvis: ','').replace(user_id+': ','').strip()
+    # Add the user question to the thread
+    message = client.beta.threads.messages.create(
+        thread_id=conversation.id,
+        role="user",
+        content=update.message.text
+    )
+
+    # Run the thread
+    run = client.beta.threads.runs.create(
+    thread_id=conversation.id,
+    assistant_id=assistant.id,
+    )
+    status = run.status
+
+    # Wait till the assistant has responded
+    while status not in ["completed", "cancelled", "expired", "failed"]:
+        time.sleep(5)
+        run = client.beta.threads.runs.retrieve(thread_id=conversation.id,run_id=run.id)
+        status = run.status
+
+    messages = client.beta.threads.messages.list(
+    thread_id=conversation.id
+    )
+    message =  messages.data[0].content[0].text.value
+
     msgs = [message[i:i + 4096] for i in range(0, len(message), 4096)]
     for text in msgs:
         await update.message.reply_text(text=text)
 
     # Update persisted context
     context.chat_data["conversation"] = conversation
-    logger.debug(f"{str(update.effective_user.id)} --> {dialog.get_question()} , Jarvis: {dialog.get_answer()}")
+    logger.debug(f"{str(update.effective_user.id)} --> {update.message.text} , Jarvis: {message}")
     return CONVERSATION
 
 async def clear(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -124,7 +166,7 @@ async def clear(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if update.effective_user.id != master_id:
         await update.message.reply_text("You're not authorized to use this bot. Please contact the bot owner.")
         return CONVERSATION
-    context.chat_data["conversation"] = Conversation(user_id=str(update.effective_user.id))
+    context.chat_data["conversation"] = client.beta.threads.create()
     await update.message.reply_text("Conversation cleared.")
     logger.info(f"Conversation cleared by {update.effective_user.id}")
     return CONVERSATION

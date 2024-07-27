@@ -8,3 +8,4 @@ components/
 training_*
 context.txt
 deployment.yaml
+deployment_reloaded.yaml
