@@ -161,6 +161,14 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     logger.debug(f"{str(update.effective_user.id)} --> {update.message.text} , Jarvis: {message}")
     return CONVERSATION
 
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Send a message when the command /start is issued."""
+    user = update.effective_user
+    await update.message.reply_html(
+        rf"Hi {str(update.effective_user.username)}!",
+    )
+
+
 async def clear(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Clear the conversation."""
     if update.effective_user.id != master_id:
@@ -180,7 +188,7 @@ def main() -> None:
 
     # Add conversation handler with the states INTRO and CONVERSATION
     conv_handler = ConversationHandler(
-        entry_points=[MessageHandler(filters.TEXT & ~filters.COMMAND, chat)],
+        entry_points=[MessageHandler(filters.TEXT & ~filters.COMMAND, chat),CommandHandler("start", start)],
         states={
             CONVERSATION: [MessageHandler(filters.TEXT & ~filters.COMMAND, chat)],
         },
