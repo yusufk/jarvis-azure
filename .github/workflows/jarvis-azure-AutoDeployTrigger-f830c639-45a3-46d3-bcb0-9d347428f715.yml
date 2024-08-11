@@ -98,11 +98,11 @@ jobs:
           tenant-id: ${{ secrets.JARVISAZURE_AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.JARVISAZURE_AZURE_SUBSCRIPTION_ID }}
 
-      - name: Push container image to registry
-        uses: azure/container-apps-deploy-action@v1
+      - name: Push container image container apps
+        uses: azure/container-apps-deploy-action@v2
         with:
           containerAppName: jarvis-azure
           resourceGroup: jarvis-rg
-          imageToDeploy: dhcr.io/jarvis-azure:${{ github.sha }}
+          imageToDeploy: dhcr.io/jarvis-azure:main
 
 
