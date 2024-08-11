@@ -103,4 +103,4 @@ jobs:
         with:
           containerAppName: jarvis-azure
           resourceGroup: jarvis-rg
-          imageToDeploy: ghcr.io/jarvis-azure:main
+          imageToDeploy: ghcr.io/jarvis-azure:${{ github.sha }}
