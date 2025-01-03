@@ -71,5 +71,5 @@ jobs:
         with:
           containerAppName: jarvis-azure
           resourceGroup: jarvis-rg
-          imageToDeploy: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          imageToDeploy: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:main
       
