@@ -7,7 +7,7 @@ authors = ["Yusuf Kaka <yusufk@gmail.com>"]
 [tool.poetry.dependencies]
 python = "^3.10"
 openai = "^1.37.1"
-python-telegram-bot = {extras = ["webhooks"], version = "^20.0"}
+python-telegram-bot = {extras = ["webhooks","helpers"], version = "^21.3"}
 python-dotenv = "^0.21.1"
 
 [tool.poetry.dev-dependencies]
