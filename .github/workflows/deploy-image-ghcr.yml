@@ -73,8 +73,11 @@ jobs:
       - name: Get existing environment variables
         id: current-env
         run: |
-          ENV_VARS=$(az containerapp show -n jarvis-azure -g jarvis-rg --query "properties.template.containers[0].env" -o json)
-          echo "current_env=$ENV_VARS" >> $GITHUB_OUTPUT
+          # Get existing vars and format them
+          ENV_VARS=$(az containerapp show -n jarvis-azure -g jarvis-rg --query "properties.template.containers[0].env[].{name:name, value:value}" -o json)
+          # Convert to env var format
+          FORMATTED_VARS=$(echo "$ENV_VARS" | jq -r '.[] | .name + "=" + .value' | tr '\n' ' ')
+          echo "current_env=$FORMATTED_VARS" >> $GITHUB_OUTPUT
 
       - name: Create new revision in Azure Container Apps
         uses: azure/container-apps-deploy-action@v1
@@ -82,9 +85,5 @@ jobs:
           containerAppName: jarvis-azure
           resourceGroup: jarvis-rg
           imageToDeploy: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:main
-          # Force new revision with environment variable
           environmentVariables: |
-            environmentVariables: |
-            ${{ fromJson(steps.current-env.outputs.current_env) }}
-            REVISION_TIMESTAMP=${{ steps.time.outputs.timestamp }}
-      
+            ${{ steps.current-env.outputs.current_env }} REVISION_TIMESTAMP=${{ steps.time.outputs.timestamp }}
