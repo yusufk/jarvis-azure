@@ -66,10 +66,17 @@ jobs:
           tenant-id: ${{ secrets.JARVISAZURE_AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.JARVISAZURE_AZURE_SUBSCRIPTION_ID }}
           
+      - name: Get current time
+        id: time
+        run: echo "timestamp=$(date +%s)" >> $GITHUB_OUTPUT
+  
       - name: Create new revision in Azure Container Apps
         uses: azure/container-apps-deploy-action@v1
         with:
           containerAppName: jarvis-azure
           resourceGroup: jarvis-rg
           imageToDeploy: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:main
+          # Force new revision with environment variable
+          environmentVariables: |
+            REVISION_TIMESTAMP=${{ steps.time.outputs.timestamp }}
       
