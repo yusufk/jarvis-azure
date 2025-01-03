@@ -57,4 +57,19 @@ jobs:
           subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME}}
           subject-digest: ${{ steps.push.outputs.digest }}
           push-to-registry: true
+
+      # This step triggers a new revision on Azure app service
+      - name: Azure login
+        uses: azure/login@v1
+        with:
+          client-id: ${{ secrets.JARVISAZURE_AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.JARVISAZURE_AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.JARVISAZURE_AZURE_SUBSCRIPTION_ID }}
+          
+      - name: Create new revision in Azure Container Apps
+        uses: azure/container-apps-deploy-action@v1
+        with:
+          containerAppName: jarvis-azure
+          resourceGroup: jarvis-rg
+          imageToDeploy: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
       
