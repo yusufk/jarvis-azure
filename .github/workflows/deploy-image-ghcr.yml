@@ -73,11 +73,24 @@ jobs:
       - name: Get existing environment variables
         id: current-env
         run: |
-          # Get current env vars excluding REVISION_TIMESTAMP
-          ENV_VARS=$(az containerapp show -n jarvis-azure -g jarvis-rg --query "properties.template.containers[0].env[?name!='REVISION_TIMESTAMP']" -o json)
-          # Add new REVISION_TIMESTAMP
-          FINAL_VARS=$(echo "$ENV_VARS" | jq -c '. + [{"name": "REVISION_TIMESTAMP", "value": "${{ steps.time.outputs.timestamp }}"}]' | jq -r '.[] | .name + "=" + .value' | tr '\n' ' ')
-          echo "current_env=$FINAL_VARS" >> $GITHUB_OUTPUT
+          # Get current configuration
+          ENV_VARS=$(az containerapp show -n jarvis-azure -g jarvis-rg --query "properties.template.containers[0].env" -o json)
+          
+          # Update or add REVISION_TIMESTAMP while preserving secretRefs
+          UPDATED_VARS=$(echo "$ENV_VARS" | jq --arg ts "${{ steps.time.outputs.timestamp }}" '
+            map(
+              if .name == "REVISION_TIMESTAMP" then
+                {"name": "REVISION_TIMESTAMP", "value": $ts}
+              elif has("secretRef") then
+                {"name": .name, "secretRef": .secretRef}
+              else
+                {"name": .name, "value": .value}
+              end
+            )'
+          )
+          
+          # Store the full JSON array
+          echo "current_env=$UPDATED_VARS" >> $GITHUB_OUTPUT
 
       - name: Create new revision in Azure Container Apps
         uses: azure/container-apps-deploy-action@v1
