@@ -20,20 +20,8 @@ from typing import Dict
 from openai import AzureOpenAI
 from dotenv import load_dotenv
 import time
-
-from telegram import __version__ as TG_VER
-
-try:
-    from telegram import __version_info__
-except ImportError:
-    __version_info__ = (0, 0, 0, 0, 0)  # type: ignore[assignment]
-
-if __version_info__ < (20, 0, 0, "alpha", 1):
-    raise RuntimeError(
-        f"This example is not compatible with your current PTB version {TG_VER}. To view the "
-        f"{TG_VER} version of this example, "
-        f"visit https://docs.python-telegram-bot.org/en/v{TG_VER}/examples.html"
-    )
+import traceback
+from datetime import datetime
 from telegram import ForceReply, Update
 from telegram.ext import (
     Application,
@@ -44,6 +32,7 @@ from telegram.ext import (
     PicklePersistence,
     filters,
 )
+from telegram.error import TelegramError
 
 # Enable logging
 debug_level = os.getenv("DEBUG_LEVEL", "INFO")
@@ -93,14 +82,17 @@ if os.path.exists(path+"context.txt"):
 else:
     context = "You have a personality like the Marvel character Jarvis. You are curious, helpful, creative, very witty and a bit sarcastic."
 
-# Create an assistant
-assistant = client.beta.assistants.create(
-    name="Jarvis",
-    instructions=context,
-    tools=[{"type": "code_interpreter"}],
-    model=os.getenv("ENGINE")
-)
-
+ASSISTANT_ID = os.getenv("ASSISTANT_ID","asst_0123vPqpL2qQKhBa3iuZQczr")
+try:
+    assistant = client.beta.assistants.retrieve(ASSISTANT_ID)
+except Exception as e:
+    logger.error(f"Failed to retrieve assistant: {e}")
+    # Create an assistant
+    assistant = client.beta.assistants.create(
+        name="Jarvis",
+        instructions=context,
+        model=os.getenv("ENGINE")
+    )
 
 async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Chat back based on the user message."""
@@ -147,10 +139,16 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         run = client.beta.threads.runs.retrieve(thread_id=conversation.id,run_id=run.id)
         status = run.status
 
+    if status != "completed":
+        logger.error(f"Assistant run failed with status {status}")
+        await update.message.reply_text("I'm sorry, I'm having trouble understanding you right now. Please try again later.")
+        return CONVERSATION
+
     messages = client.beta.threads.messages.list(
     thread_id=conversation.id
     )
     message =  messages.data[0].content[0].text.value
+    logger.debug(f"Assistant response: {message}")
 
     msgs = [message[i:i + 4096] for i in range(0, len(message), 4096)]
     for text in msgs:
@@ -168,7 +166,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         rf"Hi {str(update.effective_user.username)}!",
     )
 
-
 async def clear(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Clear the conversation."""
     if update.effective_user.id != master_id:
@@ -179,6 +176,46 @@ async def clear(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     logger.info(f"Conversation cleared by {update.effective_user.id}")
     return CONVERSATION
 
+async def status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Send status information including revision timestamp."""
+    revision_timestamp = os.getenv("REVISION_TIMESTAMP", "Unknown")
+    api_version = os.getenv("OPENAI_API_VERSION", "Unknown")
+    engine = os.getenv("ENGINE", "Unknown")
+    
+    status_message = (
+        "🤖 *Bot Status*\n\n"
+        f"📅 Revision: `{revision_timestamp}`\n"
+        f"🔄 API Version: `{api_version}`\n"
+        f"⚙️ Engine: `{engine}`"
+    )
+    await update.message.reply_text(status_message)
+    return CONVERSATION
+
+async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Log the error and send a telegram message to notify the developer."""
+    # Extract error details
+    error_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    error_msg = f"⚠️ *Error Report*\n\n"
+    error_msg += f"🕒 Time: `{error_time}`\n"
+    
+    if context.error:
+        error_msg += f"❌ Error: `{str(context.error)[:100]}`\n"
+        error_msg += f"📍 Location: `{traceback.format_tb(context.error.__traceback__)[-1][:100]}`"
+    
+    # Log the error
+    logger.error(f"Update {update} caused error {context.error}")
+    
+    try:
+        # Send error message to master user
+        await context.bot.send_message(
+            chat_id=master_id,
+            text=error_msg,
+            parse_mode='MarkdownV2'
+        )
+    except TelegramError as send_error:
+        logger.error(f"Failed to send error message: {send_error}")
+
+
 def main() -> None:
     """Run the bot."""
     # Create the Application and pass it your bot's token.
@@ -188,7 +225,7 @@ def main() -> None:
 
     # Add conversation handler with the states INTRO and CONVERSATION
     conv_handler = ConversationHandler(
-        entry_points=[MessageHandler(filters.TEXT & ~filters.COMMAND, chat),CommandHandler("start", start)],
+        entry_points=[MessageHandler(filters.TEXT & ~filters.COMMAND, chat)],
         states={
             CONVERSATION: [MessageHandler(filters.TEXT & ~filters.COMMAND, chat)],
         },
@@ -196,9 +233,14 @@ def main() -> None:
         name="my_conversation",
         persistent=True,
     )
-#    command_handler = CommandHandler("clear", clear)
-#    application.add_handler(command_handler)
+    start_handler = CommandHandler("start", start)
+    clear_handler = CommandHandler("clear", clear)
+    status_handler = CommandHandler("status", status)
+    application.add_handler(clear_handler)
+    application.add_handler(start_handler)
+    application.add_handler(status_handler)
     application.add_handler(conv_handler)
+    application.add_error_handler(error_handler)
 
     # Start the Bot
     run_as_polling = os.getenv("RUN_POLL", False)

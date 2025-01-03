@@ -68,16 +68,15 @@ jobs:
           
       - name: Get current time
         id: time
-        run: echo "timestamp=$(date +%s)" >> $GITHUB_OUTPUT
+        run: echo "timestamp=$(date +'%Y-%m-%d_%H-%M-%S')" >> $GITHUB_OUTPUT
 
       - name: Get existing environment variables
         id: current-env
         run: |
-          # Get existing vars and format them
-          ENV_VARS=$(az containerapp show -n jarvis-azure -g jarvis-rg --query "properties.template.containers[0].env[].{name:name, value:value}" -o json)
-          # Convert to env var format
-          FORMATTED_VARS=$(echo "$ENV_VARS" | jq -r '.[] | .name + "=" + .value' | tr '\n' ' ')
-          echo "current_env=$FORMATTED_VARS" >> $GITHUB_OUTPUT
+          # Get existing vars and update REVISION_TIMESTAMP
+          ENV_VARS=$(az containerapp show -n jarvis-azure -g jarvis-rg --query "properties.template.containers[0].env" -o json)
+          UPDATED_VARS=$(echo "$ENV_VARS" | jq --arg ts "${{ steps.time.outputs.timestamp }}" '[.[] | if .name == "REVISION_TIMESTAMP" then .value = $ts else . end]' | jq -r '.[] | .name + "=" + .value' | tr '\n' ' ')
+          echo "current_env=$UPDATED_VARS" >> $GITHUB_OUTPUT
 
       - name: Create new revision in Azure Container Apps
         uses: azure/container-apps-deploy-action@v1
@@ -85,5 +84,4 @@ jobs:
           containerAppName: jarvis-azure
           resourceGroup: jarvis-rg
           imageToDeploy: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:main
-          environmentVariables: |
-            ${{ steps.current-env.outputs.current_env }} REVISION_TIMESTAMP=${{ steps.time.outputs.timestamp }}
+          environmentVariables: ${{ steps.current-env.outputs.current_env }}
