@@ -266,7 +266,16 @@ def main() -> None:
     # Create the Application and pass it your bot's token.
     path = os.getenv("PERSISTENCE_PATH","./")
     persistence = PicklePersistence(filepath=path+"jarvis_brain.pkl")
-    application = Application.builder().token(telegram_token).persistence(persistence).build()
+    
+    # application = Application.builder().token(telegram_token).persistence(persistence).build()
+    # Initialize application with job queue
+    application = (
+        Application.builder()
+        .token(telegram_token)
+        .persistence(persistence)
+        .concurrent_updates(True)
+        .build()
+    )
 
     # Add conversation handler with the states INTRO and CONVERSATION
     conv_handler = ConversationHandler(
@@ -278,6 +287,7 @@ def main() -> None:
         name="my_conversation",
         persistent=True,
     )
+    # Other handlers
     start_handler = CommandHandler("start", start)
     clear_handler = CommandHandler("clear", clear)
     status_handler = CommandHandler("status", status)
@@ -287,6 +297,23 @@ def main() -> None:
     application.add_handler(conv_handler)
     application.add_error_handler(error_handler)
 
+    # Send startup notification directly
+    async def startup():
+        try:
+            revision = os.getenv("REVISION_TIMESTAMP", "Unknown")
+            message = (
+                f"🤖 *Jarvis Online*\n"
+                f"🔄 Revision: `{revision}`\n"
+                f"⚙️ Engine: `{os.getenv('ENGINE')}`"
+            )
+            await application.bot.send_message(
+                chat_id=master_id,
+                text=message,
+                parse_mode='MarkdownV2'
+            )
+        except Exception as e:
+            logger.error(f"Startup notification failed: {e}")
+    
     # Start the Bot
     run_as_polling = os.getenv("RUN_POLL", False)
     if run_as_polling:
@@ -302,7 +329,8 @@ def main() -> None:
             #cert='cert.pem',
             webhook_url=telegram_webhook_url
         )
-
+    # Run startup notification
+    asyncio.run(startup())
 
 if __name__ == "__main__":
     main()
