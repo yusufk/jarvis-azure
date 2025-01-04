@@ -260,7 +260,23 @@ async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     except TelegramError as send_error:
         logger.error(f"Failed to send error message: {send_error}")
 
-
+async def post_init_handler(application):
+    try:
+            revision = os.getenv("REVISION_TIMESTAMP", "Unknown")
+            message = (
+                f"🤖 *Jarvis Online*\n"
+                f"🔄 Revision: `{revision}`\n"
+                f"⚙️ Engine: `{os.getenv('ENGINE')}`\n"
+                f"📅 Time: `{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}`"
+            )
+            await application.bot.send_message(
+                chat_id=master_id,
+                text=message,
+                parse_mode='MarkdownV2'
+            )
+    except Exception as e:
+        logger.error(f"Startup notification failed: {e}")
+    
 def main() -> None:
     """Run the bot."""
     # Create the Application and pass it your bot's token.
@@ -273,6 +289,7 @@ def main() -> None:
         Application.builder()
         .token(telegram_token)
         .persistence(persistence)
+        .post_init(post_init_handler)
         .concurrent_updates(True)
         .build()
     )
@@ -297,23 +314,6 @@ def main() -> None:
     application.add_handler(conv_handler)
     application.add_error_handler(error_handler)
 
-    # Send startup notification directly
-    async def startup():
-        try:
-            revision = os.getenv("REVISION_TIMESTAMP", "Unknown")
-            message = (
-                f"🤖 *Jarvis Online*\n"
-                f"🔄 Revision: `{revision}`\n"
-                f"⚙️ Engine: `{os.getenv('ENGINE')}`"
-            )
-            await application.bot.send_message(
-                chat_id=master_id,
-                text=message,
-                parse_mode='MarkdownV2'
-            )
-        except Exception as e:
-            logger.error(f"Startup notification failed: {e}")
-    
     # Start the Bot
     run_as_polling = os.getenv("RUN_POLL", False)
     if run_as_polling:
@@ -329,8 +329,6 @@ def main() -> None:
             #cert='cert.pem',
             webhook_url=telegram_webhook_url
         )
-    # Run startup notification
-    asyncio.run(startup())
 
 if __name__ == "__main__":
     main()
