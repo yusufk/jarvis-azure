@@ -8,7 +8,7 @@ It is based on the [python-telegram-bot](http://python-telegram-bot.org/) librar
 
 Installation
 ------------
-To install the bot, you need to have Python 3.6 or higher installed on your system.
+To install the bot, you need to have Python 3.11 or higher installed on your system.
 Then, you can install the required dependencies using poetry:
     `poetry install`
 

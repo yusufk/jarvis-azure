@@ -96,7 +96,8 @@ except Exception as e:
     assistant = client.beta.assistants.create(
         name="Jarvis",
         instructions=context,
-        model=os.getenv("ENGINE")
+        model=os.getenv("ENGINE"),
+        temperature=os.getenv("TEMPERATURE", 0.7)
     )
 
 async def send_formatted_message(update: Update, message: str) -> None:
@@ -208,7 +209,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a message when the command /start is issued."""
     user = update.effective_user
     await update.message.reply_html(
-        rf"Hi {str(update.effective_user.username)}!",
+        rf"Hi {str(update.effective_user.username)}!\n
+        I'm Jarvis, a personal assistant. How can I help you today?\n
+        Written by @yusufk and powered by Azure OpenAI\n
+        Source code available at: [GitHub](https://github.com/yusufk/jarvis-azure)\n",
     )
 
 async def clear(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
