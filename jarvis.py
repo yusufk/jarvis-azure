@@ -17,7 +17,6 @@ import logging
 import os
 import telegram
 from typing import Dict
-from openai import AzureOpenAI
 from dotenv import load_dotenv
 import time
 import traceback
@@ -38,6 +37,7 @@ from telegramify_markdown.customize import markdown_symbol
 from telegramify_markdown.interpreters import BaseInterpreter, MermaidInterpreter
 from telegramify_markdown.type import ContentTypes
 import asyncio
+from crew import JarvisCrewai
 
 # Enable logging
 debug_level = os.getenv("DEBUG_LEVEL", "INFO")
@@ -72,11 +72,11 @@ master_id = white_list[0]
 
 CONVERSATION = range(1)
 
-# Setup Azure Open AI
-client = AzureOpenAI(
-    api_key=os.getenv("OPENAI_API_KEY"),  
-    api_version=os.getenv("OPENAI_API_VERSION"),
-    azure_endpoint = os.getenv("OPENAI_API_BASE")
+# Setup CrewAI
+llm = LLM(
+    AZURE_API_KEY=os.getenv("OPENAI_API_KEY"),
+    ZURE_API_BASE=os.getenv("OPENAI_API_BASE"),
+    AZURE_API_VERSION=os.getenv("OPENAI_API_VERSION")
     )
 
 # Initialise the context from the context.txt file if it exists
@@ -87,18 +87,9 @@ if os.path.exists(path+"context.txt"):
 else:
     context = "You have a personality like the Marvel character Jarvis. You are curious, helpful, creative, very witty and a bit sarcastic."
 
-ASSISTANT_ID = os.getenv("ASSISTANT_ID","asst_0123vPqpL2qQKhBa3iuZQczr")
-try:
-    assistant = client.beta.assistants.retrieve(ASSISTANT_ID)
-except Exception as e:
-    logger.error(f"Failed to retrieve assistant: {e}")
-    # Create an assistant
-    assistant = client.beta.assistants.create(
-        name="Jarvis",
-        instructions=context,
-        model=os.getenv("ENGINE"),
-        temperature=os.getenv("TEMPERATURE", 0.7)
-    )
+# Initialise Crew
+client = JarvisCrewai.crew()
+
 
 async def send_formatted_message(update: Update, message: str) -> None:
     boxs = await telegramify_markdown.telegramify(
