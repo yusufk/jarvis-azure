@@ -208,11 +208,10 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a message when the command /start is issued."""
     user = update.effective_user
-    await update.message.reply_html(
-        rf"Hi {str(update.effective_user.username)}!\n
-        I'm Jarvis, a personal assistant. How can I help you today?\n
-        Written by @yusufk and powered by Azure OpenAI\n
-        Source code available at: [GitHub](https://github.com/yusufk/jarvis-azure)\n",
+    await update.message.reply_html(f"Hi {str(update.effective_user.username)}!\n\
+    I'm Jarvis, a personal assistant. How can I help you today?\n\
+    Written by @yusufkaka and powered by Azure OpenAI\n\
+    Source code available at: [GitHub](https://github.com/yusufk/jarvis-azure)\n",
     )
 
 async def clear(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
