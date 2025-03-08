@@ -10,6 +10,10 @@ openai = "^1.37.1"
 python-telegram-bot = {extras = ["webhooks","helpers"], version = "^21.3"}
 python-dotenv = "^0.21.1"
 telegramify-markdown = "^0.3.2"
+agno = "^1.1.1"
+sqlalchemy = "^2.0.38"
+anthropic = "^0.45.2"
+azure-ai-inference = "^1.0.0b9"
 
 [tool.poetry.dev-dependencies]
 

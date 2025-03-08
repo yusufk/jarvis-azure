@@ -17,7 +17,6 @@ import logging
 import os
 import telegram
 from typing import Dict
-from openai import AzureOpenAI
 from dotenv import load_dotenv
 import time
 import traceback
@@ -38,6 +37,12 @@ from telegramify_markdown.customize import markdown_symbol
 from telegramify_markdown.interpreters import BaseInterpreter, MermaidInterpreter
 from telegramify_markdown.type import ContentTypes
 import asyncio
+from agno.agent import Agent, AgentMemory, RunResponse
+from agno.memory.db.sqlite import SqliteMemoryDb
+from agno.models.azure import AzureAIFoundry
+from agno.storage.agent.sqlite import SqliteAgentStorage
+from typing import Optional
+from textwrap import dedent
 
 # Enable logging
 debug_level = os.getenv("DEBUG_LEVEL", "INFO")
@@ -70,15 +75,6 @@ white_list_str = os.getenv("WHITE_LIST").split(",")
 white_list = [int(x) for x in white_list_str]
 master_id = white_list[0]
 
-CONVERSATION = range(1)
-
-# Setup Azure Open AI
-client = AzureOpenAI(
-    api_key=os.getenv("OPENAI_API_KEY"),  
-    api_version=os.getenv("OPENAI_API_VERSION"),
-    azure_endpoint = os.getenv("OPENAI_API_BASE")
-    )
-
 # Initialise the context from the context.txt file if it exists
 path = os.getenv("PERSISTENCE_PATH","/volumes/persist/")
 if os.path.exists(path+"context.txt"):
@@ -87,18 +83,55 @@ if os.path.exists(path+"context.txt"):
 else:
     context = "You have a personality like the Marvel character Jarvis. You are curious, helpful, creative, very witty and a bit sarcastic."
 
-ASSISTANT_ID = os.getenv("ASSISTANT_ID","asst_0123vPqpL2qQKhBa3iuZQczr")
-try:
-    assistant = client.beta.assistants.retrieve(ASSISTANT_ID)
-except Exception as e:
-    logger.error(f"Failed to retrieve assistant: {e}")
-    # Create an assistant
-    assistant = client.beta.assistants.create(
-        name="Jarvis",
-        instructions=context,
-        model=os.getenv("ENGINE"),
-        temperature=os.getenv("TEMPERATURE", 0.7)
+def create_agent(user: str = "user", new: bool=False):
+    session_id: Optional[str] = None
+
+    # Initialize storage for both agent sessions and memories
+    agent_storage = SqliteAgentStorage(
+        table_name="agent_memories", db_file=path+"agents.db"
     )
+
+    if not new:
+        existing_sessions = agent_storage.get_all_session_ids(user)
+        if len(existing_sessions) > 0:
+            session_id = existing_sessions[0]
+
+    agent = Agent(
+        model=AzureAIFoundry(provider="Azure",
+                          id=os.getenv("DEPLOYMENT_NAME"),
+                          api_key=os.getenv("OPENAI_API_KEY"),
+                          api_version=os.getenv("OPENAI_API_VERSION"),
+                          azure_endpoint=os.getenv("OPENAI_API_BASE")),
+        user_id=user,
+        session_id=session_id,
+        # Configure memory system with SQLite storage
+        memory=AgentMemory(
+            db=SqliteMemoryDb(
+                table_name="agent_memory",
+                db_file=path+"agent_memory.db",
+            ),
+            create_user_memories=True,
+            update_user_memories_after_run=True,
+            create_session_summary=True,
+            update_session_summary_after_run=True,
+        ),
+        storage=agent_storage,
+        add_history_to_messages=True,
+        num_history_responses=3,
+        # Enhanced system prompt for better personality and memory usage
+        description=dedent(context),
+    )
+
+    if session_id is None:
+        session_id = agent.session_id
+        if session_id is not None:
+            print(f"Started Session: {session_id}\n")
+        else:
+            print("Started Session\n")
+    else:
+        print(f"Continuing Session: {session_id}\n")
+
+    return agent
 
 async def send_formatted_message(update: Update, message: str) -> None:
     boxs = await telegramify_markdown.telegramify(
@@ -154,7 +187,7 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if update.effective_user.id not in white_list:
         logging.warning(f"Unauthorized access denied for user {user_handle} with id {user_id} and name {user_first_name} {user_last_name}.")
         await update.message.reply_text(text="You're not authorized to use this bot. Please contact the bot owner.", parse_mode='MarkdownV2')
-        return CONVERSATION
+        return None
 
     # Get the persisted context
     if ("conversation" in context.chat_data):
@@ -162,37 +195,11 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     else:
         # Create a new conversation
         logger.info(f"New user detected: {user_handle} with id {user_id}")
-        conversation = client.beta.threads.create()
-
-    # Add the user question to the thread
-    message = client.beta.threads.messages.create(
-        thread_id=conversation.id,
-        role="user",
-        content=update.message.text
-    )
-
-    # Run the thread
-    run = client.beta.threads.runs.create(
-    thread_id=conversation.id,
-    assistant_id=assistant.id,
-    )
-    status = run.status
-
-    # Wait till the assistant has responded
-    while status not in ["completed", "cancelled", "expired", "failed"]:
-        time.sleep(5)
-        run = client.beta.threads.runs.retrieve(thread_id=conversation.id,run_id=run.id)
-        status = run.status
-
-    if status != "completed":
-        logger.error(f"Assistant run failed with status {status}")
-        await update.message.reply_text("I'm sorry, I'm having trouble understanding you right now. Please try again later.")
-        return CONVERSATION
-
-    messages = client.beta.threads.messages.list(
-    thread_id=conversation.id
-    )
-    message =  messages.data[0].content[0].text.value
+        conversation = create_agent(user=user_id)
+        user_message=update.message.text
+        response: RunResponse = conversation.run(user_message)
+        logger.debug(f"Assistant response: {response}")
+    message =  response.content
     logger.debug(f"Assistant response: {message}")
 
     msgs = [message[i:i + 4096] for i in range(0, len(message), 4096)]
@@ -203,7 +210,7 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     # Update persisted context
     context.chat_data["conversation"] = conversation
     logger.debug(f"{str(update.effective_user.id)} --> {update.message.text} , Jarvis: {message}")
-    return CONVERSATION
+    return None
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a message when the command /start is issued."""
@@ -218,11 +225,11 @@ async def clear(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Clear the conversation."""
     if update.effective_user.id != master_id:
         await update.message.reply_text("You're not authorized to use this bot. Please contact the bot owner.")
-        return CONVERSATION
-    context.chat_data["conversation"] = client.beta.threads.create()
+        return None
+    context.chat_data["conversation"] = create_agent(user=update.effective_user.id, clear=True)
     await update.message.reply_text("Conversation cleared.")
     logger.info(f"Conversation cleared by {update.effective_user.id}")
-    return CONVERSATION
+    return None
 
 async def status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send status information including revision timestamp."""
@@ -237,7 +244,7 @@ async def status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         f"⚙️ Engine: `{engine}`"
     )
     await update.message.reply_text(status_message)
-    return CONVERSATION
+    return None
 
 async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Log the error and send a telegram message to notify the developer."""
@@ -297,11 +304,11 @@ def main() -> None:
         .build()
     )
 
-    # Add conversation handler with the states INTRO and CONVERSATION
+    # Add conversation handler with the states INTRO and None
     conv_handler = ConversationHandler(
         entry_points=[MessageHandler(filters.TEXT & ~filters.COMMAND, chat)],
         states={
-            CONVERSATION: [MessageHandler(filters.TEXT & ~filters.COMMAND, chat)],
+            None: [MessageHandler(filters.TEXT & ~filters.COMMAND, chat)],
         },
         fallbacks=[MessageHandler(filters.TEXT & ~filters.COMMAND, chat)],
         name="my_conversation",
