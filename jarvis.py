@@ -39,7 +39,7 @@ from telegramify_markdown.type import ContentTypes
 import asyncio
 from agno.agent import Agent, AgentMemory, RunResponse
 from agno.memory.db.sqlite import SqliteMemoryDb
-from agno.models.azure import AzureAIFoundry
+from agno.models.azure import AzureOpenAI #AzureAIFoundry
 from agno.storage.agent.sqlite import SqliteAgentStorage
 from typing import Optional
 from textwrap import dedent
@@ -88,7 +88,7 @@ def create_agent(user: str = "user", new: bool=False):
 
     # Initialize storage for both agent sessions and memories
     agent_storage = SqliteAgentStorage(
-        table_name="agent_memories", db_file=path+"agents.db"
+        table_name="agent_memories_"+user, db_file=path+"agents.db"
     )
 
     if not new:
@@ -97,17 +97,17 @@ def create_agent(user: str = "user", new: bool=False):
             session_id = existing_sessions[0]
 
     agent = Agent(
-        model=AzureAIFoundry(provider="Azure",
-                          id=os.getenv("DEPLOYMENT_NAME"),
-                          api_key=os.getenv("OPENAI_API_KEY"),
-                          api_version=os.getenv("OPENAI_API_VERSION"),
-                          azure_endpoint=os.getenv("OPENAI_API_BASE")),
+        model=AzureOpenAI(provider="Azure",
+            id=os.getenv("DEPLOYMENT_NAME"),
+            api_key=os.getenv("OPENAI_API_KEY"),
+            api_version=os.getenv("OPENAI_API_VERSION"),
+            azure_endpoint=os.getenv("OPENAI_API_BASE")),
         user_id=user,
         session_id=session_id,
         # Configure memory system with SQLite storage
         memory=AgentMemory(
             db=SqliteMemoryDb(
-                table_name="agent_memory",
+                table_name="agent_memory_"+user,
                 db_file=path+"agent_memory.db",
             ),
             create_user_memories=True,
