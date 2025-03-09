@@ -14,6 +14,9 @@ sqlalchemy = "^2.0.38"
 anthropic = "^0.45.2"
 azure-ai-inference = "^1.0.0b9"
 openai = "^1.65.4"
+duckduckgo-search = "^7.5.1"
+duckdb = "^1.2.1"
+yfinance = "^0.2.54"
 
 [tool.poetry.dev-dependencies]
 

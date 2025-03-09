@@ -39,7 +39,7 @@ from telegramify_markdown.type import ContentTypes
 import asyncio
 from agno.agent import Agent, AgentMemory, RunResponse
 from agno.memory.db.sqlite import SqliteMemoryDb
-from agno.models.azure import AzureOpenAI #AzureAIFoundry
+from agno.models.azure import AzureAIFoundry #AzureOpenAI 
 from agno.storage.agent.sqlite import SqliteAgentStorage
 from typing import Optional
 from textwrap import dedent
@@ -97,11 +97,11 @@ def create_agent(user: str = "user", new: bool=False):
             session_id = existing_sessions[0]
 
     agent = Agent(
-        model=AzureOpenAI(provider="Azure",
-            id=os.getenv("DEPLOYMENT_NAME"),
-            api_key=os.getenv("OPENAI_API_KEY"),
-            api_version=os.getenv("OPENAI_API_VERSION"),
-            azure_endpoint=os.getenv("OPENAI_API_BASE")),
+        model=AzureAIFoundry(
+            id=os.getenv("AZURE_DEPLOYMENT_NAME"),
+            api_version=os.getenv("AZURE_API_VERSION"),
+            ),
+        markdown=True,
         user_id=user,
         session_id=session_id,
         # Configure memory system with SQLite storage
@@ -119,7 +119,7 @@ def create_agent(user: str = "user", new: bool=False):
         add_history_to_messages=True,
         num_history_responses=3,
         # Enhanced system prompt for better personality and memory usage
-        description=dedent(context),
+        description=dedent(context)
     )
 
     if session_id is None:
