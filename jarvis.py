@@ -17,7 +17,10 @@ import logging
 import os
 import telegram
 from typing import Dict
-from openai import AzureOpenAI
+from autogen_agentchat.agents import AssistantAgent
+from autogen_ext.models.openai import AzureOpenAIChatCompletionClient
+from autogen_agentchat.messages import TextMessage
+from autogen_core import CancellationToken
 from dotenv import load_dotenv
 import time
 import traceback
@@ -72,12 +75,13 @@ master_id = white_list[0]
 
 CONVERSATION = range(1)
 
-# Setup Azure Open AI
-client = AzureOpenAI(
-    api_key=os.getenv("OPENAI_API_KEY"),  
-    api_version=os.getenv("OPENAI_API_VERSION"),
-    azure_endpoint = os.getenv("OPENAI_API_BASE")
-    )
+client = AzureOpenAIChatCompletionClient(
+    azure_deployment=os.getenv("AZURE_DEPLOYMENT_NAME"),
+    model="o3-mini",
+    api_version=os.getenv("AZURE_API_VERSION"),
+    azure_endpoint=os.getenv("AZURE_ENDPOINT"),
+    api_key=os.getenv("AZURE_API_KEY")
+)
 
 # Initialise the context from the context.txt file if it exists
 path = os.getenv("PERSISTENCE_PATH","/volumes/persist/")
@@ -87,18 +91,13 @@ if os.path.exists(path+"context.txt"):
 else:
     context = "You have a personality like the Marvel character Jarvis. You are curious, helpful, creative, very witty and a bit sarcastic."
 
-ASSISTANT_ID = os.getenv("ASSISTANT_ID","asst_0123vPqpL2qQKhBa3iuZQczr")
-try:
-    assistant = client.beta.assistants.retrieve(ASSISTANT_ID)
-except Exception as e:
-    logger.error(f"Failed to retrieve assistant: {e}")
-    # Create an assistant
-    assistant = client.beta.assistants.create(
-        name="Jarvis",
-        instructions=context,
-        model=os.getenv("ENGINE"),
-        temperature=os.getenv("TEMPERATURE", 0.7)
-    )
+agent = AssistantAgent(
+    name="Jarvis",
+    model_client=client,
+    #tools=[web_search],
+    system_message=context
+)
+
 
 async def send_formatted_message(update: Update, message: str) -> None:
     boxs = await telegramify_markdown.telegramify(
@@ -158,46 +157,37 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     # Get the persisted context
     if ("conversation" in context.chat_data):
+        # Existing conversation found, load it
+        logger.info(f"Existing conversation found for user {user_handle} with id {user_id}")
         conversation = context.chat_data["conversation"]
     else:
         # Create a new conversation
         logger.info(f"New user detected: {user_handle} with id {user_id}")
-        conversation = client.beta.threads.create()
+        conversation = []
 
-    # Add the user question to the thread
-    message = client.beta.threads.messages.create(
-        thread_id=conversation.id,
-        role="user",
-        content=update.message.text
+    user_content=TextMessage(content=update.message.text, source="user")
+    logger.debug(f"User-{user_handle}: {update.message.text}")
+
+    # Add the user message to the conversation
+    conversation.append(user_content)
+
+    # Get the assistant response
+    response = await agent.on_messages(
+        conversation,
+        cancellation_token=CancellationToken(),
     )
+    # Debug messages in useful format
+    logger.debug(f"Jarvis thoughts: {response.inner_messages}")
+    logger.debug(f"Jarvis: {response.chat_message}")
 
-    # Run the thread
-    run = client.beta.threads.runs.create(
-    thread_id=conversation.id,
-    assistant_id=assistant.id,
-    )
-    status = run.status
+    # Add response to the conversation
+    conversation.append(response.chat_message)
 
-    # Wait till the assistant has responded
-    while status not in ["completed", "cancelled", "expired", "failed"]:
-        time.sleep(5)
-        run = client.beta.threads.runs.retrieve(thread_id=conversation.id,run_id=run.id)
-        status = run.status
-
-    if status != "completed":
-        logger.error(f"Assistant run failed with status {status}")
-        await update.message.reply_text("I'm sorry, I'm having trouble understanding you right now. Please try again later.")
-        return CONVERSATION
-
-    messages = client.beta.threads.messages.list(
-    thread_id=conversation.id
-    )
-    message =  messages.data[0].content[0].text.value
+    message =  response.chat_message.content
     logger.debug(f"Assistant response: {message}")
 
     msgs = [message[i:i + 4096] for i in range(0, len(message), 4096)]
     for text in msgs:
-        #await update.message.reply_text(text=text)
         await send_formatted_message(update, text)
 
     # Update persisted context
