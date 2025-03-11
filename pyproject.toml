@@ -12,6 +12,8 @@ python-dotenv = "^0.21.1"
 telegramify-markdown = "^0.3.2"
 autogen-agentchat = "^0.4.8.2"
 autogen-ext = {extras = ["azure", "openai", "web-search"], version = "^0.4.8.2"}
+bs4 = "^0.0.2"
+requests = "^2.32.3"
 
 [tool.poetry.dev-dependencies]
 
