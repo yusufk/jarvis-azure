@@ -22,6 +22,9 @@ from autogen_ext.models.openai import AzureOpenAIChatCompletionClient
 from autogen_agentchat.messages import TextMessage
 from autogen_core.tools import FunctionTool
 from autogen_core import CancellationToken
+from autogen_core.memory import MemoryContent, MemoryMimeType, ListMemory
+from autogen_core.model_context import BufferedChatCompletionContext
+from autogen_ext.memory.chromadb import ChromaDBVectorMemory, PersistentChromaDBVectorMemoryConfig
 from dotenv import load_dotenv
 import time
 import traceback
@@ -43,8 +46,12 @@ from telegramify_markdown.interpreters import BaseInterpreter, MermaidInterprete
 from telegramify_markdown.type import ContentTypes
 import asyncio
 
+# Get environment variables from .env file
+from dotenv import load_dotenv
+load_dotenv()
+
 # Enable logging
-debug_level = os.getenv("DEBUG_LEVEL", "INFO")
+debug_level = os.getenv("DEBUG_LEVEL", "DEBUG")
 if (debug_level == "DEBUG"):
     debug_level = logging.DEBUG
 elif (debug_level == "INFO"):
@@ -62,10 +69,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 logger.info("Starting Jarvis...")
-
-# Get environment variables from .env file
-from dotenv import load_dotenv
-load_dotenv()
 
 telegram_token = os.getenv("TELEGRAM_TOKEN")
 telegram_webhook_token = os.getenv("WEBHOOK_TOKEN")
@@ -250,13 +253,32 @@ google_search_tool = FunctionTool(
 )
 stock_analysis_tool = FunctionTool(analyze_stock, description="Analyze stock data and generate a plot")
 
+# Setup Memory
+# Initialize user memory
+list_memory = ListMemory()
+
+chroma_user_memory = ChromaDBVectorMemory(
+    config=PersistentChromaDBVectorMemoryConfig(
+        collection_name="memories",
+        persistence_path=os.path.join(path, ".chromadb_autogen"),
+        k=2,  # Return top  k results
+        score_threshold=0.4,  # Minimum similarity score
+    )
+)
+
+model_context = BufferedChatCompletionContext(buffer_size=50)
+
 # Setup agents
 
 agent = AssistantAgent(
     name="Jarvis",
     model_client=client,
     tools=[google_search_tool],
-    system_message=context
+    system_message=context,
+    #memory=[list_memory, chroma_user_memory],
+    memory=[list_memory],
+    reflect_on_tool_use=True,
+    model_context=model_context
 )
 
 search_agent = AssistantAgent(
@@ -324,33 +346,41 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return CONVERSATION
 
     # Get the persisted context
-    if ("conversation" in context.chat_data):
+    if ("memory" in context.chat_data):
         # Existing conversation found, load it
         logger.info(f"Existing conversation found for user {user_handle} with id {user_id}")
-        conversation = context.chat_data["conversation"]
+        list_memory = context.chat_data["memory"]
     else:
         # Create a new conversation
         logger.info(f"New user detected: {user_handle} with id {user_id}")
-        conversation = []
+        #list_memory = ListMemory()
+        context.chat_data["memory"] = list_memory
+
+    #content_timestamped = datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " - " + update.message.text
 
     user_content=TextMessage(content=update.message.text, source="user")
     logger.debug(f"User-{user_handle}: {update.message.text}")
 
     # Add the user message to the conversation
-    conversation.append(user_content)
+    #conversation.append(user_content)
 
     # Get the assistant response
     response = await agent.on_messages(
-        conversation,
+        [user_content],
         cancellation_token=CancellationToken(),
     )
     # Debug messages in useful format
     logger.debug(f"Jarvis thoughts: {response.inner_messages}")
     logger.debug(f"Jarvis: {response.chat_message}")
 
-    # Add response to the conversation
-    conversation.append(response.chat_message)
+    # Add to memory
+    await list_memory.add(MemoryContent(content=update.message.text, mime_type=MemoryMimeType.TEXT,metadata={"user":user_id}))
+    await list_memory.add(MemoryContent(content=response.chat_message.content, mime_type=MemoryMimeType.TEXT,metadata={"user":user_id}))
 
+    #chroma_user_memory.add(MemoryContent(content=user_content, mime_type=MemoryMimeType.TEXT))
+    #chroma_user_memory.add(MemoryContent(content=response.chat_message.content, mime_type=MemoryMimeType.TEXT))
+
+    # Send the response to the user
     message =  response.chat_message.content
     logger.debug(f"Assistant response: {message}")
 
@@ -359,7 +389,7 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await send_formatted_message(update, text)
 
     # Update persisted context
-    context.chat_data["conversation"] = conversation
+    #context.chat_data["conversation"] = conversation
     logger.debug(f"{str(update.effective_user.id)} --> {update.message.text} , Jarvis: {message}")
     return CONVERSATION
 
@@ -386,7 +416,7 @@ async def status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send status information including revision timestamp."""
     revision_timestamp = os.getenv("REVISION_TIMESTAMP", "Unknown")
     api_version = os.getenv("OPENAI_API_VERSION", "Unknown")
-    engine = os.getenv("ENGINE", "Unknown")
+    engine = os.getenv("AZURE_DEPLOYMENT_NAME", "Unknown")
     
     status_message = (
         "🤖 *Bot Status*\n\n"
@@ -427,7 +457,7 @@ async def post_init_handler(application):
             message = (
                 f"🤖 *Jarvis Online*\n"
                 f"🔄 Revision: `{revision}`\n"
-                f"⚙️ Engine: `{os.getenv('ENGINE')}`\n"
+                f"⚙️ Engine: `{os.getenv('AZURE_DEPLOYMENT_NAME')}`\n"
                 f"📅 Time: `{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}`"
             )
             await application.bot.send_message(
@@ -473,7 +503,7 @@ def main() -> None:
     application.add_handler(start_handler)
     application.add_handler(status_handler)
     application.add_handler(conv_handler)
-    application.add_error_handler(error_handler)
+    #application.add_error_handler(error_handler)
 
     # Start the Bot
     run_as_polling = os.getenv("RUN_POLL", False)
