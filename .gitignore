@@ -10,3 +10,4 @@ context.txt
 deployment.yaml
 deployment*
 chroma_db/
+persist/
