@@ -257,16 +257,9 @@ stock_analysis_tool = FunctionTool(analyze_stock, description="Analyze stock dat
 # Initialize user memory
 list_memory = ListMemory()
 
-chroma_user_memory = ChromaDBVectorMemory(
-    config=PersistentChromaDBVectorMemoryConfig(
-        collection_name="memories",
-        persistence_path=os.path.join(path, ".chromadb_autogen"),
-        k=2,  # Return top  k results
-        score_threshold=0.4,  # Minimum similarity score
-    )
-)
+chroma_user_memory = ChromaDBVectorMemory()
 
-model_context = BufferedChatCompletionContext(buffer_size=50)
+#model_context = BufferedChatCompletionContext(buffer_size=50)
 
 # Setup agents
 
@@ -275,10 +268,10 @@ agent = AssistantAgent(
     model_client=client,
     tools=[google_search_tool],
     system_message=context,
-    #memory=[list_memory, chroma_user_memory],
-    memory=[list_memory],
+    memory=[list_memory, chroma_user_memory],
+    #memory=[list_memory],
     reflect_on_tool_use=True,
-    model_context=model_context
+    #model_context=model_context
 )
 
 search_agent = AssistantAgent(
@@ -351,10 +344,29 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         logger.info(f"Existing conversation found for user {user_handle} with id {user_id}")
         list_memory = context.chat_data["memory"]
     else:
+        logger.info(f"New user detected: {user_handle} with id {user_id}")
+
+    context.chat_data["memory"] = list_memory
+    
+    # Get the persisted context
+    if ("chroma_memory" in context.chat_data):
+        # Existing conversation found, load it
+        logger.info(f"Existing conversation found for user {user_handle} with id {user_id}")
+        chroma_user_memory = context.chat_data["chroma_memory"]
+    else:
         # Create a new conversation
         logger.info(f"New user detected: {user_handle} with id {user_id}")
-        #list_memory = ListMemory()
-        context.chat_data["memory"] = list_memory
+        chroma_user_memory = ChromaDBVectorMemory(
+            config=PersistentChromaDBVectorMemoryConfig(
+                collection_name="memory_"+user_id,
+                persistence_path=path,
+                k=2,  # Return top  k results
+                score_threshold=0.4,  # Minimum similarity score
+            )
+        )
+    
+    context.chat_data["chroma_memory"] = chroma_user_memory
+        
 
     #content_timestamped = datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " - " + update.message.text
 
@@ -374,11 +386,10 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     logger.debug(f"Jarvis: {response.chat_message}")
 
     # Add to memory
-    await list_memory.add(MemoryContent(content=update.message.text, mime_type=MemoryMimeType.TEXT,metadata={"user":user_id}))
-    await list_memory.add(MemoryContent(content=response.chat_message.content, mime_type=MemoryMimeType.TEXT,metadata={"user":user_id}))
-
-    #chroma_user_memory.add(MemoryContent(content=user_content, mime_type=MemoryMimeType.TEXT))
-    #chroma_user_memory.add(MemoryContent(content=response.chat_message.content, mime_type=MemoryMimeType.TEXT))
+    await list_memory.add(MemoryContent(content=update.message.text, mime_type=MemoryMimeType.TEXT,metadata={"user":user_id, "type":"user"}))
+    await list_memory.add(MemoryContent(content=response.chat_message.content, mime_type=MemoryMimeType.TEXT,metadata={"user":user_id, "type":"jarvis"}))
+    await chroma_user_memory.add(MemoryContent(content=update.message.text, mime_type=MemoryMimeType.TEXT,metadata={"user":user_id, "type":"user"}))
+    await chroma_user_memory.add(MemoryContent(content=response.chat_message.content, mime_type=MemoryMimeType.TEXT,metadata={"user":user_id, "type":"jarvis"}))
 
     # Send the response to the user
     message =  response.chat_message.content
