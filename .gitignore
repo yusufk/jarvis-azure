@@ -9,3 +9,4 @@ training_*
 context.txt
 deployment.yaml
 deployment*
+chroma_db/
