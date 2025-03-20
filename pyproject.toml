@@ -15,6 +15,7 @@ autogen-ext = {extras = ["azure", "openai", "web-search"], version = "^0.4.8.2"}
 bs4 = "^0.0.2"
 requests = "^2.32.3"
 pyautogen = "^0.8.3"
+chromadb = "^0.6.3"
 
 [tool.poetry.dev-dependencies]
 
