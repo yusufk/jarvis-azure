@@ -239,8 +239,8 @@ def analyze_stock(ticker: str) -> dict:  # type: ignore[type-arg]
     plt.grid(True)
 
     # Save plot to file
-    os.makedirs("coding", exist_ok=True)
-    plot_file_path = f"coding/{ticker}_stockprice.png"
+    os.makedirs(path+"/coding", exist_ok=True)
+    plot_file_path = f"{path}/coding/{ticker}_stockprice.png"
     plt.savefig(plot_file_path)
     logger.debug(f"Plot saved as {plot_file_path}")
     result["plot_file_path"] = plot_file_path
@@ -259,7 +259,7 @@ model_context = BufferedChatCompletionContext(buffer_size=50)
 #list_memory = ListMemory()
 memconfig=PersistentChromaDBVectorMemoryConfig(
                 collection_name="memory",
-                persistence_path=path+"chroma_db",
+                persistence_path=path+"/chroma_db",
                 k=2,  # Return top  k results
                 score_threshold=0.4,  # Minimum similarity score
             )
@@ -356,9 +356,9 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     memconfig.collection_name = str(user_id)
         
-    content_timestamped = datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " - " + update.message.text
+    #content_timestamped = datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " - " + update.message.text
 
-    user_content=TextMessage(content=content_timestamped, source="user")
+    user_content=TextMessage(content=update.message.text, source="user")
     logger.debug(f"User-{user_handle}: {update.message.text}")
 
     # Add the user message to the conversation
