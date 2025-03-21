@@ -153,6 +153,9 @@ def google_search(query: str, num_results: int = 2, max_chars: int = 500) -> lis
 
     return response
 
+def current_time() -> str:
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
 
 def analyze_stock(ticker: str) -> dict:  # type: ignore[type-arg]
     import os
@@ -248,15 +251,16 @@ def analyze_stock(ticker: str) -> dict:  # type: ignore[type-arg]
     return result
 
 # Setup tools
-
 google_search_tool = FunctionTool(
-    google_search, description="Search Google for information, returns results with a snippet and body content"
+    google_search, description="Search Google for current, up to date information and facts, returns results with a snippet and body content"
 )
 stock_analysis_tool = FunctionTool(analyze_stock, description="Analyze stock data and generate a plot")
+time_tool = FunctionTool(current_time, description="Get the current time")
 
 # Setup Memory
 model_context = BufferedChatCompletionContext(buffer_size=50)
 #list_memory = ListMemory()
+os.makedirs(path+"/chroma_db", exist_ok=True)
 memconfig=PersistentChromaDBVectorMemoryConfig(
                 collection_name="memory",
                 persistence_path=path+"/chroma_db",
@@ -273,7 +277,7 @@ chroma_user_memory = chroma_user_memory = ChromaDBVectorMemory(
 agent = AssistantAgent(
     name="Jarvis",
     model_client=client,
-    tools=[google_search_tool],
+    tools=[google_search_tool,time_tool],
     system_message=context,
     memory=[chroma_user_memory],
     #memory=[list_memory],
