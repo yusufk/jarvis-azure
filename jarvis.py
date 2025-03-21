@@ -257,41 +257,38 @@ google_search_tool = FunctionTool(
 stock_analysis_tool = FunctionTool(analyze_stock, description="Analyze stock data and generate a plot")
 time_tool = FunctionTool(current_time, description="Get the current time")
 
-# Setup Memory
-model_context = BufferedChatCompletionContext(buffer_size=50)
-#list_memory = ListMemory()
-os.makedirs(path+"/chroma_db", exist_ok=True)
-memconfig=PersistentChromaDBVectorMemoryConfig(
-                collection_name="memory",
-                persistence_path=path+"/chroma_db",
-                k=2,  # Return top  k results
-                score_threshold=0.4,  # Minimum similarity score
-            )
-
-chroma_user_memory = chroma_user_memory = ChromaDBVectorMemory(
-    config=memconfig
-)
-
 # Setup agents
+def get_agent(user_id: str) -> AssistantAgent:
+    model_context = BufferedChatCompletionContext(buffer_size=50)
+    #list_memory = ListMemory()
+    os.makedirs(path+"/chroma_db", exist_ok=True)
 
-agent = AssistantAgent(
-    name="Jarvis",
-    model_client=client,
-    tools=[google_search_tool,time_tool],
-    system_message=context,
-    memory=[chroma_user_memory],
-    #memory=[list_memory],
-    reflect_on_tool_use=True,
-    model_context=model_context
-)
+    chroma_user_memory = ChromaDBVectorMemory(
+        config=PersistentChromaDBVectorMemoryConfig(
+                    collection_name=user_id,
+                    persistence_path=path+"/chroma_db",
+                    k=2,  # Return top  k results
+                    score_threshold=0.4,  # Minimum similarity score
+                )
+    )
+    return AssistantAgent(
+        name="Jarvis",
+        model_client=client,
+        tools=[google_search_tool, stock_analysis_tool, time_tool],
+        system_message=context,
+        memory=[chroma_user_memory],
+        #memory=[list_memory],
+        reflect_on_tool_use=True,
+        model_context=model_context
+    )
 
-search_agent = AssistantAgent(
-    name="Google_Search_Agent",
-    model_client=client,
-    tools=[google_search_tool],
-    description="Search Google for information, returns top 2 results with a snippet and body content",
-    system_message="You are a helpful AI assistant. Solve tasks using your tools.",
-)
+#search_agent = AssistantAgent(
+#    name="Google_Search_Agent",
+#    model_client=client,
+#    tools=[google_search_tool],
+#    description="Search Google for information, returns top 2 results with a snippet and body content",
+#    system_message="You are a helpful AI assistant. Solve tasks using your tools.",
+#)
 
 async def send_formatted_message(update: Update, message: str) -> None:
     boxs = await telegramify_markdown.telegramify(
@@ -350,23 +347,19 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return CONVERSATION
 
     # Get the persisted context
-    if ("interaction_id" in context.chat_data):
+    if ("conversation" in context.chat_data):
         #Existing conversation found, load it
         logger.info(f"Existing conversation found for user {user_handle} with id {user_id}")
-        last_interaction_id = context.chat_data["interaction_id"]
+        agent = context.chat_data["agent"]
     else:
         logger.info(f"New user detected: {user_handle} with id {user_id}")
-        last_interaction_id = "New interaction"
-
-    memconfig.collection_name = str(user_id)
+        agent = get_agent(user_id)
+        context.chat_data["agent"] = agent
         
     #content_timestamped = datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " - " + update.message.text
 
     user_content=TextMessage(content=update.message.text, source="user")
     logger.debug(f"User-{user_handle}: {update.message.text}")
-
-    # Add the user message to the conversation
-    #conversation.append(user_content)
 
     # Get the assistant response
     response = await agent.on_messages(
@@ -382,8 +375,8 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     #await list_memory.add(MemoryContent(content=response.chat_message.content, mime_type=MemoryMimeType.TEXT,metadata={"user":user_id, "type":"jarvis"}))
     # Create an interaction id to tie the memories together
     interaction_id = str(uuid.uuid4())
-    await chroma_user_memory.add(MemoryContent(content=update.message.text, mime_type=MemoryMimeType.TEXT,metadata={"category":"user_said","interaction_id":interaction_id, "previous_interaction_id":last_interaction_id}))
-    await chroma_user_memory.add(MemoryContent(content=response.chat_message.content, mime_type=MemoryMimeType.TEXT,metadata={"category":"jarvis_said","interaction_id":interaction_id, "previous_interaction_id":last_interaction_id}))
+    await agent._memory[0].add(MemoryContent(content=update.message.text, mime_type=MemoryMimeType.TEXT,metadata={"category":"user_said","interaction_id":interaction_id}))
+    await agent._memory[0].add(MemoryContent(content=response.chat_message.content, mime_type=MemoryMimeType.TEXT,metadata={"category":"jarvis_said","interaction_id":interaction_id}))
 
     # Send the response to the user
     message =  response.chat_message.content
@@ -409,11 +402,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 async def clear(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Clear the conversation."""
-    if update.effective_user.id != master_id:
-        await update.message.reply_text("You're not authorized to use this bot. Please contact the bot owner.")
-        return CONVERSATION
-    #list_memory.clear()
-    chroma_user_memory.clear()
+    #if update.effective_user.id != master_id:
+    #    await update.message.reply_text("You're not authorized to use this bot. Please contact the bot owner.")
+    #    return CONVERSATION
+    user_id = str(update.effective_user.id)
+    agent = get_agent(user_id)
+    context.chat_data["agent"] = agent
     await update.message.reply_text("Conversation cleared.")
     logger.info(f"Conversation cleared by {update.effective_user.id}")
     return CONVERSATION
@@ -478,14 +472,14 @@ def main() -> None:
     """Run the bot."""
     # Create the Application and pass it your bot's token.
     path = os.getenv("PERSISTENCE_PATH","./")
-    #persistence = PicklePersistence(filepath=path+"jarvis_brain.pkl")
+    persistence = PicklePersistence(filepath=path+"jarvis_brain.pkl")
     
     # application = Application.builder().token(telegram_token).persistence(persistence).build()
     # Initialize application with job queue
     application = (
         Application.builder()
         .token(telegram_token)
-        #.persistence(persistence)
+        .persistence(persistence)
         .post_init(post_init_handler)
         .concurrent_updates(True)
         .build()
@@ -499,7 +493,7 @@ def main() -> None:
         },
         fallbacks=[MessageHandler(filters.TEXT & ~filters.COMMAND, chat)],
         name="my_conversation",
-        #persistent=True,
+        persistent=True,
     )
     # Other handlers
     start_handler = CommandHandler("start", start)
