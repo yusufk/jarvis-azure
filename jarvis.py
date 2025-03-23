@@ -262,6 +262,10 @@ def get_agent(user_id: str) -> {AssistantAgent, ListMemory}:
     list_memory = ListMemory()
 
     return {AssistantAgent(
+        name="Jarvis",
+        model_client=client,
+        tools=[google_search_tool, stock_analysis_tool, time_tool],
+        system_message=context,
         memory=[list_memory],
         reflect_on_tool_use=True,
         model_context=model_context
