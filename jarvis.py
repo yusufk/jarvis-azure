@@ -21,6 +21,7 @@ from typing import Dict
 from autogen_agentchat.agents import AssistantAgent
 from autogen_ext.models.openai import AzureOpenAIChatCompletionClient
 from autogen_agentchat.messages import TextMessage
+from autogen_agentchat.teams import MagenticOneGroupChat
 from autogen_core.tools import FunctionTool
 from autogen_core import CancellationToken
 from autogen_core.memory import MemoryContent, MemoryMimeType, ListMemory
@@ -351,21 +352,25 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         #Existing conversation found, load it
         logger.info(f"Existing conversation found for user {user_handle} with id {user_id}")
         agent = context.chat_data["agent"]
+        team = MagenticOneGroupChat([agent], model_client=client)
     else:
         logger.info(f"New user detected: {user_handle} with id {user_id}")
         agent = get_agent(user_id)
         context.chat_data["agent"] = agent
-        
+        team = MagenticOneGroupChat([agent], model_client=client)
+
     #content_timestamped = datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " - " + update.message.text
 
     user_content=TextMessage(content=update.message.text, source="user")
     logger.debug(f"User-{user_handle}: {update.message.text}")
 
+
     # Get the assistant response
-    response = await agent.on_messages(
-        [user_content],
-        cancellation_token=CancellationToken(),
-    )
+    #response = await agent.on_messages(
+    #    [user_content],
+    #    cancellation_token=CancellationToken(),
+    #)
+    response = await team.run(task=user_content, cancellation_token=CancellationToken())
     # Debug messages in useful format
     logger.debug(f"Jarvis thoughts: {response.inner_messages}")
     logger.debug(f"Jarvis: {response.chat_message}")
