@@ -25,7 +25,6 @@ from autogen_core.tools import FunctionTool
 from autogen_core import CancellationToken
 from autogen_core.memory import MemoryContent, MemoryMimeType, ListMemory
 from autogen_core.model_context import BufferedChatCompletionContext
-from autogen_ext.memory.chromadb import ChromaDBVectorMemory, PersistentChromaDBVectorMemoryConfig
 from dotenv import load_dotenv
 import time
 import traceback
@@ -258,29 +257,19 @@ stock_analysis_tool = FunctionTool(analyze_stock, description="Analyze stock dat
 time_tool = FunctionTool(current_time, description="Get the current time")
 
 # Setup agents
-def get_agent(user_id: str) -> AssistantAgent:
+def get_agent(user_id: str) -> {AssistantAgent, ListMemory}:
     model_context = BufferedChatCompletionContext(buffer_size=50)
-    #list_memory = ListMemory()
-    os.makedirs(path+"/chroma_db", exist_ok=True)
+    list_memory = ListMemory()
 
-    chroma_user_memory = ChromaDBVectorMemory(
-        config=PersistentChromaDBVectorMemoryConfig(
-                    collection_name=user_id,
-                    persistence_path=path+"/chroma_db",
-                    k=2,  # Return top  k results
-                    score_threshold=0.4,  # Minimum similarity score
-                )
-    )
-    return AssistantAgent(
+    return {AssistantAgent(
         name="Jarvis",
         model_client=client,
         tools=[google_search_tool, stock_analysis_tool, time_tool],
         system_message=context,
-        memory=[chroma_user_memory],
-        #memory=[list_memory],
+        memory=[list_memory],
         reflect_on_tool_use=True,
         model_context=model_context
-    )
+    ), list_memory}
 
 #search_agent = AssistantAgent(
 #    name="Google_Search_Agent",
@@ -346,49 +335,56 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text(text="You're not authorized to use this bot. Please contact the bot owner.", parse_mode='MarkdownV2')
         return CONVERSATION
 
-    # Get the persisted context
+        # Get the persisted context
     if ("conversation" in context.chat_data):
         #Existing conversation found, load it
         logger.info(f"Existing conversation found for user {user_handle} with id {user_id}")
-        agent = context.chat_data["agent"]
+        agent, list_memory = context.chat_data["conversation"]
     else:
         logger.info(f"New user detected: {user_handle} with id {user_id}")
-        agent = get_agent(user_id)
-        context.chat_data["agent"] = agent
+        agent, list_memory = get_agent(user_id)
+        context.chat_data["conversation"] = {agent, list_memory}
         
-    #content_timestamped = datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " - " + update.message.text
-
-    user_content=TextMessage(content=update.message.text, source="user")
+    user_content = TextMessage(content=update.message.text, source="user")
     logger.debug(f"User-{user_handle}: {update.message.text}")
 
-    # Get the assistant response
     response = await agent.on_messages(
         [user_content],
-        cancellation_token=CancellationToken(),
+        cancellation_token=CancellationToken()
     )
+
     # Debug messages in useful format
     logger.debug(f"Jarvis thoughts: {response.inner_messages}")
     logger.debug(f"Jarvis: {response.chat_message}")
 
-    # Add to memory
-    #await list_memory.add(MemoryContent(content=update.message.text, mime_type=MemoryMimeType.TEXT,metadata={"user":user_id, "type":"user"}))
-    #await list_memory.add(MemoryContent(content=response.chat_message.content, mime_type=MemoryMimeType.TEXT,metadata={"user":user_id, "type":"jarvis"}))
-    # Create an interaction id to tie the memories together
-    interaction_id = str(uuid.uuid4())
-    await agent._memory[0].add(MemoryContent(content=update.message.text, mime_type=MemoryMimeType.TEXT,metadata={"category":"user_said","interaction_id":interaction_id}))
-    await agent._memory[0].add(MemoryContent(content=response.chat_message.content, mime_type=MemoryMimeType.TEXT,metadata={"category":"jarvis_said","interaction_id":interaction_id}))
+    # Extract and store memories if [MEM] tags are present
+    message = response.chat_message.content
+    import re
+    mem_patterns = re.findall(r'\[MEM\](.*?)(?=\[MEM\]|\Z)', message, re.DOTALL)
+    
+    if mem_patterns:
+        for mem in mem_patterns:
+            mem = mem.strip()
+            if mem:  # Only store if there's actual content
+                await list_memory.add(MemoryContent(
+                    content=mem,
+                    mime_type=MemoryMimeType.TEXT,
+                    metadata={
+                        "timestamp": datetime.now().isoformat(),
+                        "type": "memory"
+                    }
+                ))
+                logger.debug(f"Stored memory: {mem}")
+
 
     # Send the response to the user
-    message =  response.chat_message.content
+    message = response.chat_message.content
     logger.debug(f"Assistant response: {message}")
 
     msgs = [message[i:i + 4096] for i in range(0, len(message), 4096)]
     for text in msgs:
         await send_formatted_message(update, text)
 
-    # Update persisted context
-    #context.chat_data["conversation"] = conversation
-    logger.debug(f"{str(update.effective_user.id)} --> {update.message.text} , Jarvis: {message}")
     return CONVERSATION
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
