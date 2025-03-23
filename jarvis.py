@@ -262,10 +262,6 @@ def get_agent(user_id: str) -> {AssistantAgent, ListMemory}:
     list_memory = ListMemory()
 
     return {AssistantAgent(
-        name="Jarvis",
-        model_client=client,
-        tools=[google_search_tool, stock_analysis_tool, time_tool],
-        system_message=context,
         memory=[list_memory],
         reflect_on_tool_use=True,
         model_context=model_context
@@ -334,7 +330,7 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         logging.warning(f"Unauthorized access denied for user {user_handle} with id {user_id} and name {user_first_name} {user_last_name}.")
         await update.message.reply_text(text="You're not authorized to use this bot. Please contact the bot owner.", parse_mode='MarkdownV2')
         return CONVERSATION
-
+      
         # Get the persisted context
     if ("conversation" in context.chat_data):
         #Existing conversation found, load it
@@ -344,6 +340,7 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         logger.info(f"New user detected: {user_handle} with id {user_id}")
         agent, list_memory = get_agent(user_id)
         context.chat_data["conversation"] = {agent, list_memory}
+
         
     user_content = TextMessage(content=update.message.text, source="user")
     logger.debug(f"User-{user_handle}: {update.message.text}")
@@ -375,7 +372,6 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                     }
                 ))
                 logger.debug(f"Stored memory: {mem}")
-
 
     # Send the response to the user
     message = response.chat_message.content
