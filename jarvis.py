@@ -338,7 +338,7 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     chat_context = None
       
     # Get the persisted context
-    if ("conversation" in context.chat_data):
+    if ("memories" in context.chat_data and "chat_context" in context.chat_data):
         #Existing conversation found, load it
         logger.info(f"Existing conversation found for user {user_handle} with id {user_id}")
         memories = context.chat_data["memories"]
@@ -403,12 +403,13 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 async def clear(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Clear the conversation."""
-    #if update.effective_user.id != master_id:
-    #    await update.message.reply_text("You're not authorized to use this bot. Please contact the bot owner.")
-    #    return CONVERSATION
     user_id = str(update.effective_user.id)
-    agent = get_agent(user_id)
-    context.chat_data["agent"] = agent
+    # Reset both memories and chat context
+    memories = ListMemory()
+    chat_context = BufferedChatCompletionContext(buffer_size=50)
+    context.chat_data["memories"] = memories
+    context.chat_data["chat_context"] = chat_context
+    agent = get_agent(user_id, memories, chat_context)
     await update.message.reply_text("Conversation cleared.")
     logger.info(f"Conversation cleared by {update.effective_user.id}")
     return CONVERSATION
