@@ -87,13 +87,13 @@ client = AzureOpenAIChatCompletionClient(
     api_key=os.getenv("AZURE_API_KEY")
 )
 
-# Initialise the context from the context.txt file if it exists
+# Initialise the system message from the context.txt file if it exists
 path = os.getenv("PERSISTENCE_PATH","/volumes/persist/")
 if os.path.exists(path+"context.txt"):
     with open(path+"context.txt", "r") as f:
-        context = f.read()
+        system_message = f.read()
 else:
-    context = "You have a personality like the Marvel character Jarvis. You are curious, helpful, creative, very witty and a bit sarcastic."
+    system_message = "You have a personality like the Marvel character Jarvis. You are curious, helpful, creative, very witty and a bit sarcastic."
 
 def google_search(query: str, num_results: int = 2, max_chars: int = 500) -> list:  # type: ignore[type-arg]
     import requests
@@ -257,19 +257,18 @@ stock_analysis_tool = FunctionTool(analyze_stock, description="Analyze stock dat
 time_tool = FunctionTool(current_time, description="Get the current time")
 
 # Setup agents
-def get_agent(user_id: str) -> {AssistantAgent, ListMemory}:
-    model_context = BufferedChatCompletionContext(buffer_size=50)
-    list_memory = ListMemory()
-
-    return {AssistantAgent(
+def get_agent(user_id: str, memories: ListMemory, chat_context: BufferedChatCompletionContext) -> {AssistantAgent}:
+    agent = AssistantAgent(
         name="Jarvis",
         model_client=client,
         tools=[google_search_tool, stock_analysis_tool, time_tool],
-        system_message=context,
-        memory=[list_memory],
+        system_message=system_message,
+        memory=[memories],
         reflect_on_tool_use=True,
-        model_context=model_context
-    ), list_memory}
+        model_context=chat_context
+    )
+
+    return agent
 
 #search_agent = AssistantAgent(
 #    name="Google_Search_Agent",
@@ -334,18 +333,24 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         logging.warning(f"Unauthorized access denied for user {user_handle} with id {user_id} and name {user_first_name} {user_last_name}.")
         await update.message.reply_text(text="You're not authorized to use this bot. Please contact the bot owner.", parse_mode='MarkdownV2')
         return CONVERSATION
+    
+    memories = None
+    chat_context = None
       
-        # Get the persisted context
+    # Get the persisted context
     if ("conversation" in context.chat_data):
         #Existing conversation found, load it
         logger.info(f"Existing conversation found for user {user_handle} with id {user_id}")
-        agent, list_memory = context.chat_data["conversation"]
+        memories = context.chat_data["memories"]
+        chat_context = context.chat_data["chat_context"]
     else:
         logger.info(f"New user detected: {user_handle} with id {user_id}")
-        agent, list_memory = get_agent(user_id)
-        context.chat_data["conversation"] = {agent, list_memory}
+        memories = ListMemory()
+        context.chat_data["memories"] = memories
+        chat_context = BufferedChatCompletionContext(buffer_size=50)
+        context.chat_data["chat_context"] = chat_context
 
-        
+    agent = get_agent(user_id, memories, chat_context)
     user_content = TextMessage(content=update.message.text, source="user")
     logger.debug(f"User-{user_handle}: {update.message.text}")
 
@@ -367,7 +372,7 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         for mem in mem_patterns:
             mem = mem.strip()
             if mem:  # Only store if there's actual content
-                await list_memory.add(MemoryContent(
+                await memories.add(MemoryContent(
                     content=mem,
                     mime_type=MemoryMimeType.TEXT,
                     metadata={
