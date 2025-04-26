@@ -41,7 +41,6 @@ from telegram.ext import (
 )
 from telegram.error import TelegramError
 import telegramify_markdown
-from telegramify_markdown.customize import markdown_symbol
 from telegramify_markdown.interpreters import BaseInterpreter, MermaidInterpreter
 from telegramify_markdown.type import ContentTypes
 import asyncio
