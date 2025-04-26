@@ -287,17 +287,17 @@ async def send_formatted_message(update: Update, message: str) -> None:
         max_word_count=4096  # The maximum number of words in a single message.
     )
     for item in boxs:
-        logger.debug("Sent one item")
+        logger.debug("Sending formatted message item")
         await asyncio.sleep(0.2)
         try:
             if item.content_type == ContentTypes.TEXT:
-                logger.info("TEXT")
+                logger.debug("Sending TEXT message")
                 await update.message.reply_text(
                     text=item.content,
                     parse_mode="MarkdownV2"
                 )
             elif item.content_type == ContentTypes.PHOTO:
-                logger.info("PHOTO")
+                logger.debug("Sending PHOTO message")
                 await update.message.reply_photo(
                     photo=item.file_data,
                     filename=item.file_name, 
@@ -305,7 +305,7 @@ async def send_formatted_message(update: Update, message: str) -> None:
                     parse_mode="MarkdownV2",
                 )
             elif item.content_type == ContentTypes.FILE:
-                logger.info("FILE")
+                logger.debug("Sending FILE message")
                 await update.message.reply_document(
                     filename=item.file_name,
                     document=item.file_data,
@@ -313,9 +313,9 @@ async def send_formatted_message(update: Update, message: str) -> None:
                     parse_mode="MarkdownV2"
                 )
         except Exception as e:
-            logger.error(f"Error: {item}")
+            logger.warning(f"Error sending message: {str(e)}")  # Changed from info to warning
+            logger.error(f"Message content that caused error: {item}")
             raise e
-
 
 async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Chat back based on the user message."""
