@@ -44,6 +44,8 @@ import telegramify_markdown
 from telegramify_markdown.interpreters import BaseInterpreter, MermaidInterpreter
 from telegramify_markdown.type import ContentTypes
 import asyncio
+from telegramify_markdown.interpreters import TextInterpreter, MermaidInterpreter
+import telegramify_markdown.customize as customize
 
 # Get environment variables from .env file
 from dotenv import load_dotenv
@@ -158,7 +160,8 @@ def current_time() -> str:
 def analyze_stock(ticker: str) -> dict:  # type: ignore[type-arg]
     import os
     from datetime import datetime, timedelta
-
+    import matplotlib
+    matplotlib.use('Agg')  # Must be before any pyplot import
     import matplotlib.pyplot as plt
     import numpy as np
     import pandas as pd
@@ -240,8 +243,8 @@ def analyze_stock(ticker: str) -> dict:  # type: ignore[type-arg]
     plt.grid(True)
 
     # Save plot to file
-    os.makedirs(path+"/coding", exist_ok=True)
-    plot_file_path = f"{path}/coding/{ticker}_stockprice.png"
+    os.makedirs(path+"/stocks", exist_ok=True)
+    plot_file_path = f"{path}/stocks/{ticker}_stockprice.png"
     plt.savefig(plot_file_path)
     logger.debug(f"Plot saved as {plot_file_path}")
     result["plot_file_path"] = plot_file_path
@@ -278,15 +281,19 @@ def get_agent(user_id: str, memories: ListMemory, chat_context: BufferedChatComp
 #)
 
 async def send_formatted_message(update: Update, message: str) -> None:
+    # Configure mermaid settings
+    customize.strict_markdown = False  # Allow for more flexible markdown parsing
+    
     boxs = await telegramify_markdown.telegramify(
         content=message,
-        interpreters_use=[BaseInterpreter(), MermaidInterpreter(session=None)],  # Render mermaid diagram
+        interpreters_use=[TextInterpreter(), MermaidInterpreter(session=None)],
         latex_escape=True,
         normalize_whitespace=True,
-        max_word_count=4096  # The maximum number of words in a single message.
+        max_word_count=4096
     )
+    
     for item in boxs:
-        logger.debug("Sending formatted message item")
+        logger.debug(f"Processing message item type: {item.content_type}")
         await asyncio.sleep(0.2)
         try:
             if item.content_type == ContentTypes.TEXT:
@@ -300,20 +307,20 @@ async def send_formatted_message(update: Update, message: str) -> None:
                 await update.message.reply_photo(
                     photo=item.file_data,
                     filename=item.file_name, 
-                    caption=item.caption,
-                    parse_mode="MarkdownV2",
+                    caption=item.caption if hasattr(item, 'caption') else None,
+                    parse_mode="MarkdownV2" if hasattr(item, 'caption') else None
                 )
             elif item.content_type == ContentTypes.FILE:
                 logger.debug("Sending FILE message")
                 await update.message.reply_document(
-                    filename=item.file_name,
                     document=item.file_data,
-                    caption=item.caption,
-                    parse_mode="MarkdownV2"
+                    filename=item.file_name,
+                    caption=item.caption if hasattr(item, 'caption') else None,
+                    parse_mode="MarkdownV2" if hasattr(item, 'caption') else None
                 )
         except Exception as e:
-            logger.warning(f"Error sending message: {str(e)}")  # Changed from info to warning
-            logger.error(f"Message content that caused error: {item}")
+            logger.error(f"Error sending message: {str(e)}")
+            logger.error(f"Item that caused error: {item}")
             raise e
 
 async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
