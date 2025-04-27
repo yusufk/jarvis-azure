@@ -14,6 +14,8 @@ autogen-agentchat = "^0.5.5"
 autogen-ext = {extras = ["azure", "openai", "web-search"], version = "^0.5.5"}
 bs4 = "^0.0.2"
 requests = "^2.32.3"
+matplotlib = "^3.10.1"
+numpy = "^2.2.5"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
