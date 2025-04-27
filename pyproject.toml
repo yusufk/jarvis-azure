@@ -8,7 +8,7 @@ authors = ["Yusuf Kaka <yusufk@gmail.com>"]
 python = ">=3.10,<3.14"
 openai = "^1.37.1"
 python-telegram-bot = {extras = ["webhooks","helpers"], version = "^22.0"}
-python-dotenv = "^1.1.0"
+python-dotenv = "^1.1.0
 telegramify-markdown = {extras = ["mermaid"], version = "^0.5.1"}
 autogen-agentchat = "^0.5.5"
 autogen-ext = {extras = ["azure", "openai", "web-search"], version = "^0.5.5"}
