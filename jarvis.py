@@ -79,6 +79,7 @@ white_list = [int(x) for x in white_list_str]
 master_id = white_list[0]
 mcp_host_url = os.getenv("MCP_HOST_URL", "http://cappucino:8123/mcp_server/sse")
 mcp_auth_token = os.getenv("MCP_AUTH_TOKEN")
+use_mcp = os.getenv("ENABLE_MCP_SERVER", "False").lower() == "true"
 
 CONVERSATION = range(1)
 
@@ -286,18 +287,20 @@ class AgentManager:
             logger.info(f"Creating new agent instance for user {user_id}")
             tools = [google_search_tool, stock_analysis_tool, time_tool]
             
-            # Try connecting to Home Assistant tools for master user
-            if user_id == str(master_id):
-                try:
-                    mcp_tools = await mcp_server_tools(homeassistant_server_params)
-                    if isinstance(mcp_tools, list):
-                        tools.extend(mcp_tools)
-                        logger.info("Home Assistant tools initialized successfully.")
-                    else:
-                        logger.warning("Home Assistant tools returned invalid format")
-                except Exception as e:
-                    logger.warning(f"Failed to initialize HomeAssistant tools: {str(e)}")
-            
+            if use_mcp:
+                logger.info("Using MCP server tools for Home Assistant integration")
+                # Try connecting to Home Assistant tools for master user
+                if user_id == str(master_id):
+                    try:
+                        mcp_tools = await mcp_server_tools(homeassistant_server_params)
+                        if isinstance(mcp_tools, list):
+                            tools.extend(mcp_tools)
+                            logger.info("Home Assistant tools initialized successfully.")
+                        else:
+                            logger.warning("Home Assistant tools returned invalid format")
+                    except Exception as e:
+                        logger.warning(f"Failed to initialize HomeAssistant tools: {str(e)}")
+                
             # Create new agent instance
             cls._instances[user_id] = AssistantAgent(
                 name="Jarvis",
