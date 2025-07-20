@@ -15,11 +15,9 @@ bot.
 
 import logging
 import os
-import uuid
-import telegram
-from typing import Dict
 from autogen_agentchat.agents import AssistantAgent
 from autogen_ext.models.openai import AzureOpenAIChatCompletionClient
+from autogen_ext.tools.mcp import mcp_server_tools, SseServerParams
 from autogen_agentchat.messages import TextMessage
 from autogen_core.tools import FunctionTool
 from autogen_core import CancellationToken
@@ -29,7 +27,7 @@ from dotenv import load_dotenv
 import time
 import traceback
 from datetime import datetime
-from telegram import ForceReply, Update
+from telegram import Update
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -46,6 +44,8 @@ from telegramify_markdown.type import ContentTypes
 import asyncio
 from telegramify_markdown.interpreters import TextInterpreter, MermaidInterpreter
 import telegramify_markdown.customize as customize
+from typing import Dict, Optional
+from functools import lru_cache
 
 # Get environment variables from .env file
 from dotenv import load_dotenv
@@ -77,6 +77,8 @@ telegram_webhook_url = os.getenv("WEBHOOK_URL")
 white_list_str = os.getenv("WHITE_LIST").split(",")
 white_list = [int(x) for x in white_list_str]
 master_id = white_list[0]
+mcp_host_url = os.getenv("MCP_HOST_URL", "http://cappucino:8123/mcp_server/sse")
+mcp_auth_token = os.getenv("MCP_AUTH_TOKEN")
 
 CONVERSATION = range(1)
 
@@ -258,19 +260,67 @@ google_search_tool = FunctionTool(
 stock_analysis_tool = FunctionTool(analyze_stock, description="Analyze stock data and generate a plot")
 time_tool = FunctionTool(current_time, description="Get the current time")
 
-# Setup agents
-def get_agent(user_id: str, memories: ListMemory, chat_context: BufferedChatCompletionContext) -> {AssistantAgent}:
-    agent = AssistantAgent(
-        name="Jarvis",
-        model_client=client,
-        tools=[google_search_tool, stock_analysis_tool, time_tool],
-        system_message=system_message,
-        memory=[memories],
-        reflect_on_tool_use=True,
-        model_context=chat_context
-    )
+# Home Assistant tools
+homeassistant_server_params = SseServerParams(
+    url=mcp_host_url,
+    headers={
+        "Authorization": "Bearer " + mcp_auth_token
+    },
+    timeout=30
+)  
 
-    return agent
+# Add this after the client initialization
+class AgentManager:
+    _instances: Dict[str, AssistantAgent] = {}
+    
+    @classmethod
+    async def get_agent(
+        cls, 
+        user_id: str, 
+        memories: Optional[ListMemory] = None, 
+        chat_context: Optional[BufferedChatCompletionContext] = None
+    ) -> AssistantAgent:
+        """Get or create an agent instance for the given user_id."""
+       
+        if user_id not in cls._instances:
+            logger.info(f"Creating new agent instance for user {user_id}")
+            tools = [google_search_tool, stock_analysis_tool, time_tool]
+            
+            # Try connecting to Home Assistant tools for master user
+            if user_id == str(master_id):
+                try:
+                    mcp_tools = await mcp_server_tools(homeassistant_server_params)
+                    if isinstance(mcp_tools, list):
+                        tools.extend(mcp_tools)
+                        logger.info("Home Assistant tools initialized successfully.")
+                    else:
+                        logger.warning("Home Assistant tools returned invalid format")
+                except Exception as e:
+                    logger.warning(f"Failed to initialize HomeAssistant tools: {str(e)}")
+            
+            # Create new agent instance
+            cls._instances[user_id] = AssistantAgent(
+                name="Jarvis",
+                model_client=client,
+                tools=tools,
+                system_message=system_message,
+                memory=[memories] if memories else [],
+                reflect_on_tool_use=True,
+                model_context=chat_context
+            )
+                
+        return cls._instances[user_id]
+
+    @classmethod
+    def clear_agent(cls, user_id: str) -> None:
+        """Remove an agent instance for the given user_id."""
+        if user_id in cls._instances:
+            del cls._instances[user_id]
+            logger.info(f"Cleared agent instance for user {user_id}")
+
+# Setup agents
+async def get_agent(user_id: str, memories: ListMemory, chat_context: BufferedChatCompletionContext) -> AssistantAgent:
+    return await AgentManager.get_agent(user_id, memories, chat_context)
 
 #search_agent = AssistantAgent(
 #    name="Google_Search_Agent",
@@ -345,7 +395,6 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
       
     # Get the persisted context
     if ("memories" in context.chat_data and "chat_context" in context.chat_data):
-        #Existing conversation found, load it
         logger.info(f"Existing conversation found for user {user_handle} with id {user_id}")
         memories = context.chat_data["memories"]
         chat_context = context.chat_data["chat_context"]
@@ -356,7 +405,8 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         chat_context = BufferedChatCompletionContext(buffer_size=50)
         context.chat_data["chat_context"] = chat_context
 
-    agent = get_agent(user_id, memories, chat_context)
+    # Get the singleton agent instance
+    agent = await AgentManager.get_agent(user_id, memories, chat_context)
     user_content = TextMessage(content=update.message.text, source="user")
     logger.debug(f"User-{user_handle}: {update.message.text}")
 
@@ -415,7 +465,11 @@ async def clear(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     chat_context = BufferedChatCompletionContext(buffer_size=50)
     context.chat_data["memories"] = memories
     context.chat_data["chat_context"] = chat_context
-    agent = get_agent(user_id, memories, chat_context)
+    
+    # Clear the agent instance and get a fresh one
+    AgentManager.clear_agent(user_id)
+    await AgentManager.get_agent(user_id, memories, chat_context)
+    
     await update.message.reply_text("Conversation cleared.")
     logger.info(f"Conversation cleared by {update.effective_user.id}")
     return CONVERSATION

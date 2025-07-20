@@ -11,12 +11,14 @@ openai = "^1.37.1"
 python-telegram-bot = {extras = ["webhooks","helpers"], version = "^22.0"}
 python-dotenv = "^1.1.0"
 telegramify-markdown = {extras = ["mermaid"], version = "^0.5.1"}
-autogen-agentchat = "^0.5.5"
-autogen-ext = {extras = ["azure", "openai", "web-search"], version = "^0.5.5"}
+autogen-agentchat = "^0.6.4"
+autogen-ext = {extras = ["web-surfer"], version = "^0.6.4"}
 bs4 = "^0.0.2"
 requests = "^2.32.3"
 matplotlib = "^3.8.0"
 numpy = "^2.2.5"
+mcp-server-fetch = "^2025.4.7"
+tiktoken = "^0.9.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
