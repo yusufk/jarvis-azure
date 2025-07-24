@@ -49,7 +49,7 @@ from functools import lru_cache
 
 # Get environment variables from .env file
 from dotenv import load_dotenv
-load_dotenv()
+load_dotenv(override=True)
 
 # Enable logging
 debug_level = os.getenv("DEBUG_LEVEL", "DEBUG")
@@ -85,7 +85,7 @@ CONVERSATION = range(1)
 
 client = AzureOpenAIChatCompletionClient(
     azure_deployment=os.getenv("AZURE_DEPLOYMENT_NAME"),
-    model="o3-mini",
+    model=os.getenv("AZURE_DEPLOYMENT_NAME"),
     api_version=os.getenv("AZURE_API_VERSION"),
     azure_endpoint=os.getenv("AZURE_ENDPOINT"),
     api_key=os.getenv("AZURE_API_KEY")
@@ -102,8 +102,6 @@ else:
 def google_search(query: str, num_results: int = 2, max_chars: int = 500) -> list:  # type: ignore[type-arg]
     import requests
     from bs4 import BeautifulSoup
-
-    load_dotenv()
 
     api_key = os.getenv("GOOGLE_API_KEY")
     search_engine_id = os.getenv("GOOGLE_SEARCH_ENGINE_ID")
