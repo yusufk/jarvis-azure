@@ -88,7 +88,9 @@ client = AzureOpenAIChatCompletionClient(
     model=os.getenv("AZURE_DEPLOYMENT_NAME"),
     api_version=os.getenv("AZURE_API_VERSION"),
     azure_endpoint=os.getenv("AZURE_ENDPOINT"),
-    api_key=os.getenv("AZURE_API_KEY")
+    api_key=os.getenv("AZURE_API_KEY"),
+    max_retries=3,
+    timeout=30.0
 )
 
 # Initialise the system message from the context.txt file if it exists
@@ -403,41 +405,60 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         logger.info(f"New user detected: {user_handle} with id {user_id}")
         memories = ListMemory()
         context.chat_data["memories"] = memories
-        chat_context = BufferedChatCompletionContext(buffer_size=50)
+        chat_context = BufferedChatCompletionContext(buffer_size=10)
         context.chat_data["chat_context"] = chat_context
 
+    # Check if chat buffer is full and needs summarization
+    if hasattr(chat_context, '_messages') and len(chat_context._messages) >= 8:
+        # Summarize the conversation and store in memory
+        messages_text = "\n".join([f"{getattr(msg, 'source', 'system')}: {getattr(msg, 'content', str(msg))}" for msg in chat_context._messages[:-2]])
+        summary_prompt = f"Summarize this conversation, focusing on key facts, preferences, and context:\n{messages_text}"
+        
+        try:
+            summary_response = await client.create([{"role": "user", "content": summary_prompt}])
+            summary = summary_response.content[0].text if summary_response.content else "Conversation summary unavailable"
+            
+            await memories.add(MemoryContent(
+                content=f"Conversation summary: {summary}",
+                mime_type=MemoryMimeType.TEXT,
+                metadata={"timestamp": datetime.now().isoformat(), "type": "summary"}
+            ))
+            
+            # Reset chat context to keep only last 2 messages
+            chat_context = BufferedChatCompletionContext(buffer_size=10)
+            context.chat_data["chat_context"] = chat_context
+            logger.info(f"Summarized and compressed chat history for user {user_id}")
+        except Exception as e:
+            logger.warning(f"Failed to summarize conversation: {e}")
+    
     # Get the singleton agent instance
     agent = await AgentManager.get_agent(user_id, memories, chat_context)
     user_content = TextMessage(content=update.message.text, source="user")
     logger.debug(f"User-{user_handle}: {update.message.text}")
 
-    response = await agent.on_messages(
-        [user_content],
-        cancellation_token=CancellationToken()
-    )
+    try:
+        response = await agent.on_messages(
+            [user_content],
+            cancellation_token=CancellationToken()
+        )
+    except Exception as e:
+        if "429" in str(e):
+            await update.message.reply_text("I'm experiencing high demand right now. Please try again in a moment.")
+            return CONVERSATION
+        raise e
 
     # Debug messages in useful format
     logger.debug(f"Jarvis thoughts: {response.inner_messages}")
     logger.debug(f"Jarvis: {response.chat_message}")
 
-    # Extract and store memories if [MEM] tags are present
-    message = response.chat_message.content
-    import re
-    mem_patterns = re.findall(r'\[MEM\](.*?)(?=\[MEM\]|\Z)', message, re.DOTALL)
-    
-    if mem_patterns:
-        for mem in mem_patterns:
-            mem = mem.strip()
-            if mem:  # Only store if there's actual content
-                await memories.add(MemoryContent(
-                    content=mem,
-                    mime_type=MemoryMimeType.TEXT,
-                    metadata={
-                        "timestamp": datetime.now().isoformat(),
-                        "type": "memory"
-                    }
-                ))
-                logger.debug(f"Stored memory: {mem}")
+    # Store important user information in memory
+    user_text = update.message.text.lower()
+    if any(keyword in user_text for keyword in ['my name is', 'i am', 'i like', 'i work', 'remember']):
+        await memories.add(MemoryContent(
+            content=f"User info: {update.message.text}",
+            mime_type=MemoryMimeType.TEXT,
+            metadata={"timestamp": datetime.now().isoformat(), "type": "user_info"}
+        ))
 
     # Send the response to the user
     message = response.chat_message.content
@@ -463,7 +484,7 @@ async def clear(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = str(update.effective_user.id)
     # Reset both memories and chat context
     memories = ListMemory()
-    chat_context = BufferedChatCompletionContext(buffer_size=50)
+    chat_context = BufferedChatCompletionContext(buffer_size=10)
     context.chat_data["memories"] = memories
     context.chat_data["chat_context"] = chat_context
     
