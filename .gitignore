@@ -11,3 +11,4 @@ deployment.yaml
 deployment*
 chroma_db/
 persist/
+.DS_Store
